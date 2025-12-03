@@ -64,5 +64,10 @@
         "plate": "KRA111",
         "entry_time": "2025-12-03 12:52:33",
         "status": "active"
+    },
+    "54941": {
+        "plate": "KRA123",
+        "entry_time": "2025-12-03 13:21:01",
+        "status": "active"
     }
 }

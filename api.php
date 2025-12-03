@@ -47,34 +47,43 @@ $input = json_decode(file_get_contents('php://input'), true);
 $action = $input['action'] ?? 'pay'; // Default to pay for backward compatibility
 
 if ($action === 'create') {
-    // Utworzenie nowego biletu
-    $plate = $input['plate'] ?? null;
-    if (!$plate) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Wymagany numer rejestracyjny']);
-        exit;
-    }
+    try {
+        // Utworzenie nowego biletu
+        $plate = $input['plate'] ?? null;
+        if (!$plate) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Wymagany numer rejestracyjny']);
+            exit;
+        }
 
-    $new_id = (string) rand(10000, 99999);
-    // Zapewnij unikalny identyfikator
-    while (isset($tickets[$new_id])) {
         $new_id = (string) rand(10000, 99999);
-    }
+        // Zapewnij unikalny identyfikator
+        while (isset($tickets[$new_id])) {
+            $new_id = (string) rand(10000, 99999);
+        }
 
-    $tickets[$new_id] = [
-        'plate' => strtoupper($plate),
-        'entry_time' => date('Y-m-d H:i:s'),
-        'status' => 'active'
-    ];
+        $tickets[$new_id] = [
+            'plate' => strtoupper($plate),
+            'entry_time' => date('Y-m-d H:i:s'),
+            'status' => 'active'
+        ];
 
-    if (file_put_contents($json_file, json_encode($tickets, JSON_PRETTY_PRINT))) {
-        echo json_encode([
-            'success' => true,
-            'ticket_id' => $new_id
-        ]);
-    } else {
+        if (file_put_contents($json_file, json_encode($tickets, JSON_PRETTY_PRINT))) {
+            echo json_encode([
+                'success' => true,
+                'ticket_id' => $new_id
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Błąd zapisu bazy danych']);
+        }
+    } catch (Exception $e) {
+        error_log("Error creating ticket: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Błąd zapisu bazy danych']);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Błąd podczas tworzenia biletu: ' . $e->getMessage()
+        ]);
     }
     exit;
 }
