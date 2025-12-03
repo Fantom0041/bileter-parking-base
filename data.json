@@ -1,0 +1,19 @@
+{
+    "12345": {
+        "plate": "KRA1111",
+        "entry_time": "2023-10-27 10:00:00",
+        "status": "paid",
+        "payment_time": "2025-12-03 10:54:20",
+        "amount_paid": 92170
+    },
+    "67890": {
+        "plate": "WA 55555",
+        "entry_time": "2023-10-27 08:00:00",
+        "status": "active"
+    },
+    "11223": {
+        "plate": "PO 99887",
+        "entry_time": "2023-10-26 15:00:00",
+        "status": "paid"
+    }
+}

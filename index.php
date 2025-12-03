@@ -1,0 +1,181 @@
+<?php
+// 1. Load Configuration
+$config = parse_ini_file('config.ini');
+
+// 2. Load Data
+$json_data = file_get_contents('data.json');
+$tickets = json_decode($json_data, true);
+
+// 3. Get Ticket ID
+$ticket_id = $_GET['ticket_id'] ?? null;
+$ticket = null;
+$error = null;
+
+// 4. Validate Ticket
+if ($ticket_id && isset($tickets[$ticket_id])) {
+    $ticket = $tickets[$ticket_id];
+} else {
+    $error = "Ticket not found or invalid.";
+}
+
+// 5. Calculate Fee
+$fee = 0;
+$duration_minutes = 0;
+$status_message = "";
+$is_free_period = false;
+
+if ($ticket) {
+    if ($ticket['status'] === 'paid') {
+        $status_message = "Paid";
+        $fee = 0;
+    } else {
+        $entry_time = new DateTime($ticket['entry_time']);
+        $current_time = new DateTime(); // Now
+        // For testing, you might want to force a specific time if needed, 
+        // but for now we use server time.
+
+        $interval = $entry_time->diff($current_time);
+        $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
+
+        if ($duration_minutes <= $config['free_minutes']) {
+            $fee = 0;
+            $is_free_period = true;
+            $status_message = "Free Period (" . ($config['free_minutes'] - $duration_minutes) . "m left)";
+        } else {
+            // Simple hourly calculation: ceil(hours) * rate
+            $hours = ceil($duration_minutes / 60);
+            $fee = $hours * $config['hourly_rate'];
+            $status_message = "Active";
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parking Settlement</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <?php if ($error): ?>
+        <div class="error-container">
+            <div class="icon-error">!</div>
+            <h1>Ticket Not Found</h1>
+            <p><?php echo htmlspecialchars($error); ?></p>
+        </div>
+    <?php else: ?>
+
+        <div class="app-container">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="brand-logo">P</div>
+                <h2>Parking Details</h2>
+            </header>
+
+            <!-- Hero: License Plate -->
+            <section class="plate-section">
+                <div class="license-plate">
+                    <div class="plate-blue">
+                        <span>PL</span>
+                    </div>
+                    <div class="plate-number"><?php echo htmlspecialchars($ticket['plate']); ?></div>
+                </div>
+            </section>
+
+            <!-- Status Indicator -->
+            <section class="status-section">
+                <div class="status-badge <?php echo $is_free_period ? 'status-free' : 'status-paid'; ?>">
+                    <?php echo htmlspecialchars($status_message); ?>
+                </div>
+            </section>
+
+            <!-- Timer Circle (Visual Only) -->
+            <section class="timer-section">
+                <div class="timer-circle">
+                    <div class="timer-content">
+                        <span class="label">Duration</span>
+                        <span class="value"><?php echo $duration_minutes; ?><small>min</small></span>
+                    </div>
+                    <svg class="progress-ring" width="120" height="120">
+                        <circle class="progress-ring__circle" stroke="currentColor" stroke-width="4" fill="transparent"
+                            r="52" cx="60" cy="60" />
+                    </svg>
+                </div>
+            </section>
+
+            <!-- Details Grid -->
+            <section class="details-grid">
+                <div class="info-card">
+                    <span class="label">Entry Time</span>
+                    <span class="value"><?php echo $entry_time->format('H:i'); ?></span>
+                </div>
+                <div class="info-card">
+                    <span class="label">Zone</span>
+                    <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
+                </div>
+            </section>
+
+            <div class="spacer"></div>
+
+            <!-- Bottom Sheet: Payment Control -->
+            <footer class="payment-sheet" id="paymentSheet">
+                <div class="sheet-handle"></div>
+
+                <div class="payment-summary">
+                    <span class="label">Total Due</span>
+                    <div class="price-display">
+                        <span id="displayPrice"><?php echo number_format($fee, 2); ?></span>
+                        <span class="currency"><?php echo $config['currency']; ?></span>
+                    </div>
+                </div>
+
+                <!-- Extension Chips (Hidden by default, shown via JS if needed) -->
+                <div class="extension-chips" id="extensionChips" style="display: none;">
+                    <button class="chip" data-add="30">+30m</button>
+                    <button class="chip" data-add="60">+1h</button>
+                    <button class="chip" data-add="120">+2h</button>
+                </div>
+
+                <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
+                    <?php echo $fee > 0 ? 'Pay Now' : 'Free Exit'; ?>
+                </button>
+            </footer>
+
+            <!-- Success Overlay (Hidden) -->
+            <div class="success-overlay" id="successOverlay">
+                <div class="success-content">
+                    <div class="checkmark-circle">
+                        <div class="checkmark draw"></div>
+                    </div>
+                    <h2>Payment Successful</h2>
+                    <div class="exit-ticket">
+                        <div class="qr-placeholder" id="qrCode"></div>
+                        <p class="ticket-msg">Scan at exit</p>
+                        <p class="valid-until">Valid for 15 min</p>
+                    </div>
+                    <button class="btn-secondary" onclick="location.reload()">Close</button>
+                </div>
+            </div>
+
+        </div>
+    <?php endif; ?>
+
+    <!-- Pass PHP variables to JS -->
+    <script>
+        const TICKET_ID = "<?php echo $ticket_id; ?>";
+        const INITIAL_FEE = <?php echo $fee; ?>;
+        const HOURLY_RATE = <?php echo $config['hourly_rate']; ?>;
+    </script>
+    <script src="script.js"></script>
+</body>
+
+</html>

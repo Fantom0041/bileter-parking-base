@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    container_name: parking-app
+    ports:
+      - "8020:80" # Maps localhost:8080 to container:80
+    volumes:
+      # Mounts your local folder to the container so code changes apply instantly
+      - .:/var/www/html
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    restart: unless-stopped
