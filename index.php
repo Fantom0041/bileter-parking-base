@@ -15,7 +15,7 @@ $error = null;
 if ($ticket_id && isset($tickets[$ticket_id])) {
     $ticket = $tickets[$ticket_id];
 } else {
-    $error = "Ticket not found or invalid.";
+    $error = "Bilet nie został znaleziony lub jest nieprawidłowy.";
 }
 
 // 5. Calculate Fee
@@ -29,7 +29,7 @@ if ($ticket) {
     $entry_time = new DateTime($ticket['entry_time']);
 
     if ($ticket['status'] === 'paid') {
-        $status_message = "Paid";
+        $status_message = "Opłacony";
         $fee = 0;
     } else {
         $current_time = new DateTime(); // Now
@@ -42,18 +42,18 @@ if ($ticket) {
         if ($duration_minutes <= $config['free_minutes']) {
             $fee = 0;
             $is_free_period = true;
-            $status_message = "Free Period (" . ($config['free_minutes'] - $duration_minutes) . "m left)";
+            $status_message = "Okres bezpłatny (" . ($config['free_minutes'] - $duration_minutes) . " min pozostało)";
         } else {
             // Simple hourly calculation: ceil(hours) * rate
             $hours = ceil($duration_minutes / 60);
             $fee = $hours * $config['hourly_rate'];
-            $status_message = "Active";
+            $status_message = "Aktywne";
         }
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 
 <head>
     <meta charset="UTF-8">
@@ -71,11 +71,11 @@ if ($ticket) {
     <?php if ($error): ?>
         <div class="error-container">
             <div class="icon-error" style="background: rgba(106, 27, 154, 0.1); color: var(--primary);">+</div>
-            <h1>Start Parking</h1>
-            <p>Enter your license plate to start a new session.</p>
+            <h1>Rozpocznij parkowanie</h1>
+            <p>Wpisz numer rejestracyjny, aby rozpocząć nową sesję.</p>
 
             <form id="newTicketForm" class="new-ticket-form">
-                <input type="text" id="plateInput" placeholder="KRA 12345" maxlength="10" required>
+                <input type="text" id="plateInput" placeholder="np. KRA 12345" maxlength="10" required>
                 <button type="submit" class="btn-primary">Start</button>
             </form>
         </div>
@@ -85,7 +85,7 @@ if ($ticket) {
             <!-- Header -->
             <header class="app-header">
                 <div class="brand-logo">P</div>
-                <h2>Parking Details</h2>
+                <h2>Szczegóły parkowania</h2>
             </header>
 
             <!-- Hero: License Plate -->
@@ -135,11 +135,11 @@ if ($ticket) {
             <!-- Details Grid -->
             <section class="details-grid">
                 <div class="info-card">
-                    <span class="label">Entry Time</span>
+                    <span class="label">Czas wjazdu</span>
                     <span class="value"><?php echo $entry_time->format('H:i'); ?></span>
                 </div>
                 <div class="info-card">
-                    <span class="label">Zone</span>
+                    <span class="label">Strefa</span>
                     <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
                 </div>
             </section>
@@ -151,7 +151,7 @@ if ($ticket) {
                 <div class="sheet-handle"></div>
 
                 <div class="payment-summary">
-                    <span class="label">Total Due</span>
+                    <span class="label">Do zapłaty</span>
                     <div class="price-display">
                         <span id="displayPrice"><?php echo number_format($fee, 2); ?></span>
                         <span class="currency"><?php echo $config['currency']; ?></span>
@@ -166,7 +166,7 @@ if ($ticket) {
                 </div>
 
                 <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
-                    <?php echo $fee > 0 ? 'Pay Now' : 'Free Exit'; ?>
+                    <?php echo $fee > 0 ? 'Zapłać teraz' : 'Wyjazd bez opłaty'; ?>
                 </button>
             </footer>
 
@@ -176,13 +176,13 @@ if ($ticket) {
                     <div class="checkmark-circle">
                         <div class="checkmark draw"></div>
                     </div>
-                    <h2>Payment Successful</h2>
+                    <h2>Płatność zakończona</h2>
                     <div class="exit-ticket">
                         <div class="qr-placeholder" id="qrCode"></div>
-                        <p class="ticket-msg">Scan at exit</p>
-                        <p class="valid-until">Valid for 15 min</p>
+                        <p class="ticket-msg">Zeskanuj przy wyjeździe</p>
+                        <p class="valid-until">Ważny przez 15 minut</p>
                     </div>
-                    <button class="btn-secondary" onclick="location.reload()">Close</button>
+                    <button class="btn-secondary" onclick="location.reload()">Zamknij</button>
                 </div>
             </div>
 

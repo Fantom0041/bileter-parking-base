@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- NEW TICKET FLOW ---
+    // --- NOWA SESJA PARKOWANIA ---
     const newTicketForm = document.getElementById('newTicketForm');
     if (newTicketForm) {
         newTicketForm.addEventListener('submit', async (e) => {
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const plate = document.getElementById('plateInput').value;
             const btn = newTicketForm.querySelector('button');
             const originalText = btn.innerText;
-            btn.innerText = 'Creating...';
+            btn.innerText = 'Tworzenie...';
             btn.disabled = true;
 
             try {
@@ -36,13 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     window.location.href = `index.php?ticket_id=${data.ticket_id}`;
                 } else {
-                    alert('Error: ' + data.message);
+                    alert('Błąd: ' + data.message);
                     btn.innerText = originalText;
                     btn.disabled = false;
                 }
             } catch (error) {
                 console.error(error);
-                alert('Network error: ' + error.message);
+                alert('Błąd sieci: ' + error.message);
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return; // Stop execution if we are on the "New Ticket" page
     }
 
-    // --- EXISTING TICKET FLOW ---
+    // --- ISTNIEJĄCY BILET PARKINGOWY ---
     let currentFee = INITIAL_FEE;
     let addedMinutes = 0;
 
@@ -94,8 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startDrag(e) {
-        // Don't allow dragging if ticket is already paid (button will show "Free Exit" when paid)
-        if (payButton.innerText === 'Free Exit' && INITIAL_FEE <= 0) return;
+        // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony (przycisk pokaże "Wyjazd bez opłaty")
+        if (payButton.innerText === 'Wyjazd bez opłaty' && INITIAL_FEE <= 0) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -166,10 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const offset = CIRCUMFERENCE - (degrees / 360) * CIRCUMFERENCE;
         progressCircle.style.strokeDashoffset = offset;
 
-        // 3. Calculate Time & Fee
-        // Map 360 degrees to 12 hours (720 minutes) for example
-        // Or map 360 degrees to 2 hours (120 minutes) for finer control
-        // Let's say 1 full rotation = 4 hours (240 minutes)
+        // 3. Wylicz czas i opłatę
+        // Załóżmy, że 1 pełne okrążenie = 4 godziny (240 minut)
         const totalMinutes = Math.round((degrees / 360) * 240);
 
         // Snap to 15 min increments
@@ -194,18 +192,18 @@ document.addEventListener('DOMContentLoaded', () => {
         displayPrice.innerText = currentFee.toFixed(2);
 
         if (currentFee > 0) {
-            payButton.innerText = `Pay ${currentFee.toFixed(2)}`;
+            payButton.innerText = `Zapłać ${currentFee.toFixed(2)}`;
             payButton.disabled = false;
         } else {
-            payButton.innerText = 'Free Exit';
+            payButton.innerText = 'Wyjazd bez opłaty';
             payButton.disabled = false;
         }
     }
 
-    // 3. Handle Payment
+    // 3. Obsługa płatności
     payButton.addEventListener('click', async () => {
         const originalText = payButton.innerText;
-        payButton.innerText = 'Processing...';
+        payButton.innerText = 'Przetwarzanie...';
         payButton.disabled = true;
 
         try {
@@ -241,13 +239,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 successOverlay.classList.add('visible');
                 paymentSheet.style.transform = 'translate(-50%, 100%)';
             } else {
-                alert('Payment failed: ' + data.message);
+                alert('Płatność nieudana: ' + data.message);
                 payButton.innerText = originalText;
                 payButton.disabled = false;
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred: ' + error.message);
+            alert('Wystąpił błąd: ' + error.message);
             payButton.innerText = originalText;
             payButton.disabled = false;
         }
