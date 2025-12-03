@@ -427,22 +427,131 @@ body {
     cursor: pointer;
 }
 
-/* Error Page */
+/* New Ticket Form */
 .error-container {
-    text-align: center;
-    padding: 40px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    max-width: 480px;
+    margin: 0 auto;
 }
 
 .icon-error {
-    width: 64px;
-    height: 64px;
-    background: rgba(213, 0, 0, 0.1);
-    color: var(--error);
-    font-size: 32px;
-    font-weight: 700;
-    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    border-radius: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 24px;
+    font-size: 48px;
+    font-weight: 300;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(106, 27, 154, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.icon-error:hover {
+    transform: scale(1.05);
+}
+
+.error-container h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+
+.error-container p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    text-align: center;
+}
+
+.new-ticket-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 320px;
+}
+
+.new-ticket-form input {
+    width: 100%;
+    padding: 16px;
+    border: 2px solid #E0E0E0;
+    border-radius: 12px;
+    font-size: 18px;
+    text-align: center;
+    text-transform: uppercase;
+    font-family: 'Roboto Mono', monospace;
+    outline: none;
+    transition: all 0.2s;
+    background: white;
+}
+
+.new-ticket-form input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(106, 27, 154, 0.1);
+}
+
+/* Updated Spinner */
+.timer-circle {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 50%;
+    box-shadow:
+        inset 0 4px 20px rgba(0, 0, 0, 0.05),
+        0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.progress-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    /* Let clicks pass through to handle */
+}
+
+#spinnerHandle {
+    pointer-events: all;
+    /* Enable interaction */
+    transition: transform 0.1s;
+    cursor: grab;
+    touch-action: none;
+    /* Prevent browser touch gestures */
+}
+
+#spinnerHandle:active {
+    transform: scale(1.2);
+    cursor: grabbing;
+}
+
+/* Increase touch target size for mobile */
+@media (hover: none) and (pointer: coarse) {
+    #spinnerHandle circle {
+        r: 16;
+        /* Larger touch target on mobile */
+    }
+}
+
+.timer-content .label {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary);
+    letter-spacing: 1px;
+}
+
+.timer-content .value {
+    font-size: 36px;
 }

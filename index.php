@@ -25,11 +25,13 @@ $status_message = "";
 $is_free_period = false;
 
 if ($ticket) {
+    // Always initialize entry_time from ticket data
+    $entry_time = new DateTime($ticket['entry_time']);
+
     if ($ticket['status'] === 'paid') {
         $status_message = "Paid";
         $fee = 0;
     } else {
-        $entry_time = new DateTime($ticket['entry_time']);
         $current_time = new DateTime(); // Now
         // For testing, you might want to force a specific time if needed, 
         // but for now we use server time.
@@ -68,9 +70,14 @@ if ($ticket) {
 <body>
     <?php if ($error): ?>
         <div class="error-container">
-            <div class="icon-error">!</div>
-            <h1>Ticket Not Found</h1>
-            <p><?php echo htmlspecialchars($error); ?></p>
+            <div class="icon-error" style="background: rgba(106, 27, 154, 0.1); color: var(--primary);">+</div>
+            <h1>Start Parking</h1>
+            <p>Enter your license plate to start a new session.</p>
+
+            <form id="newTicketForm" class="new-ticket-form">
+                <input type="text" id="plateInput" placeholder="KRA 12345" maxlength="10" required>
+                <button type="submit" class="btn-primary">Start</button>
+            </form>
         </div>
     <?php else: ?>
 
@@ -98,16 +105,29 @@ if ($ticket) {
                 </div>
             </section>
 
-            <!-- Timer Circle (Visual Only) -->
+            <!-- Interactive Spinner -->
             <section class="timer-section">
-                <div class="timer-circle">
+                <div class="timer-circle" id="spinnerContainer">
                     <div class="timer-content">
-                        <span class="label">Duration</span>
-                        <span class="value"><?php echo $duration_minutes; ?><small>min</small></span>
+                        <span class="label">START</span>
+                        <span class="value" id="spinnerValue">00:00<small>/h</small></span>
                     </div>
-                    <svg class="progress-ring" width="120" height="120">
-                        <circle class="progress-ring__circle" stroke="currentColor" stroke-width="4" fill="transparent"
-                            r="52" cx="60" cy="60" />
+
+                    <!-- SVG Spinner -->
+                    <svg class="progress-ring" width="240" height="240" viewBox="0 0 240 240">
+                        <!-- Track -->
+                        <circle class="progress-ring__track" cx="120" cy="120" r="100" fill="none" stroke="#E0E0E0"
+                            stroke-width="20" />
+
+                        <!-- Progress Arc -->
+                        <circle class="progress-ring__circle" id="progressCircle" cx="120" cy="120" r="100" fill="none"
+                            stroke="var(--primary)" stroke-width="20" stroke-linecap="round" stroke-dasharray="628"
+                            stroke-dashoffset="628" transform="rotate(-90 120 120)" />
+
+                        <!-- Handle -->
+                        <g id="spinnerHandle" style="cursor: grab;">
+                            <circle cx="120" cy="20" r="12" fill="var(--primary)" stroke="white" stroke-width="4" />
+                        </g>
                     </svg>
                 </div>
             </section>

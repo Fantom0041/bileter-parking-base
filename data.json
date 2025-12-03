@@ -15,5 +15,17 @@
         "plate": "PO 99887",
         "entry_time": "2023-10-26 15:00:00",
         "status": "paid"
+    },
+    "11409": {
+        "plate": "KRA123]",
+        "entry_time": "2025-12-03 11:07:58",
+        "status": "paid",
+        "payment_time": "2025-12-03 11:26:29",
+        "amount_paid": 15
+    },
+    "77490": {
+        "plate": "KRA123",
+        "entry_time": "2025-12-03 11:31:59",
+        "status": "active"
     }
 }
