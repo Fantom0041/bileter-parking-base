@@ -88,13 +88,34 @@ if ($ticket) {
                 <h2>Szczegóły parkowania</h2>
             </header>
 
+            <!-- Details Grid (Moved to Top) -->
+            <section class="details-grid">
+                <div class="info-card">
+                    <span class="label">Czas wjazdu</span>
+                    <span class="value"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
+                </div>
+                <div class="info-card">
+                    <span class="label">Strefa</span>
+                    <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
+                </div>
+            </section>
+
             <!-- Hero: License Plate -->
             <section class="plate-section">
-                <div class="license-plate">
+                <div class="license-plate" id="licensePlateContainer">
                     <div class="plate-blue">
                         <span>PL</span>
                     </div>
-                    <div class="plate-number"><?php echo htmlspecialchars($ticket['plate']); ?></div>
+                    <div class="plate-number" id="plateDisplay">
+                        <?php echo htmlspecialchars($ticket['plate']); ?>
+                    </div>
+                    <input type="text" id="plateEditInput" class="plate-input" value="<?php echo htmlspecialchars($ticket['plate']); ?>" maxlength="10" style="display: none;">
+                    <button id="editPlateBtn" class="edit-icon" aria-label="Edytuj numer rejestracyjny">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
                 </div>
             </section>
 
@@ -132,31 +153,11 @@ if ($ticket) {
                 </div>
             </section>
 
-            <!-- Details Grid -->
-            <section class="details-grid">
-                <div class="info-card">
-                    <span class="label">Czas wjazdu</span>
-                    <span class="value"><?php echo $entry_time->format('H:i'); ?></span>
-                </div>
-                <div class="info-card">
-                    <span class="label">Strefa</span>
-                    <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
-                </div>
-            </section>
-
             <div class="spacer"></div>
 
             <!-- Bottom Sheet: Payment Control -->
             <footer class="payment-sheet" id="paymentSheet">
                 <div class="sheet-handle"></div>
-
-                <div class="payment-summary">
-                    <span class="label">Do zapłaty</span>
-                    <div class="price-display">
-                        <span id="displayPrice"><?php echo number_format($fee, 2); ?></span>
-                        <span class="currency"><?php echo $config['currency']; ?></span>
-                    </div>
-                </div>
 
                 <!-- Extension Chips (Hidden by default, shown via JS if needed) -->
                 <div class="extension-chips" id="extensionChips" style="display: none;">
@@ -166,7 +167,7 @@ if ($ticket) {
                 </div>
 
                 <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
-                    <?php echo $fee > 0 ? 'Zapłać teraz' : 'Wyjazd bez opłaty'; ?>
+                    <?php echo $fee > 0 ? 'Zapłać ' . number_format($fee, 2) . ' ' . $config['currency'] : 'Wyjazd bez opłaty'; ?>
                 </button>
             </footer>
 

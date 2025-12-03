@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let addedMinutes = 0;
 
     // Elements
-    const displayPrice = document.getElementById('displayPrice');
+    // const displayPrice = document.getElementById('displayPrice'); // Removed
     const payButton = document.getElementById('payButton');
     const paymentSheet = document.getElementById('paymentSheet');
     const successOverlay = document.getElementById('successOverlay');
@@ -189,10 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentFee = INITIAL_FEE + additionalFee;
 
-        displayPrice.innerText = currentFee.toFixed(2);
+        // displayPrice.innerText = currentFee.toFixed(2); // Removed
 
         if (currentFee > 0) {
-            payButton.innerText = `Zapłać ${currentFee.toFixed(2)}`;
+            payButton.innerText = `Zapłać ${currentFee.toFixed(2)} zł`;
             payButton.disabled = false;
         } else {
             payButton.innerText = 'Wyjazd bez opłaty';
@@ -251,3 +251,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// 4. Edycja numeru rejestracyjnego
+const editPlateBtn = document.getElementById('editPlateBtn');
+const plateDisplay = document.getElementById('plateDisplay');
+const plateInput = document.getElementById('plateEditInput');
+
+if (editPlateBtn && plateDisplay && plateInput) {
+    editPlateBtn.addEventListener('click', () => {
+        plateDisplay.style.display = 'none';
+        plateInput.style.display = 'block';
+        plateInput.focus();
+        editPlateBtn.style.display = 'none';
+    });
+
+    function savePlate() {
+        const newPlate = plateInput.value.toUpperCase();
+        if (newPlate.trim() !== "") {
+            plateDisplay.innerText = newPlate;
+        }
+        plateDisplay.style.display = 'flex';
+        plateInput.style.display = 'none';
+        editPlateBtn.style.display = 'flex';
+    }
+
+    plateInput.addEventListener('blur', savePlate);
+    plateInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            savePlate();
+        }
+    });
+}
+
