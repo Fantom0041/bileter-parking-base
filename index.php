@@ -194,6 +194,7 @@ if ($ticket) {
         const TICKET_ID = "<?php echo $ticket_id; ?>";
         const INITIAL_FEE = <?php echo $fee; ?>;
         const HOURLY_RATE = <?php echo $config['hourly_rate']; ?>;
+        const IS_PAID = <?php echo ($ticket && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
     </script>
     <script src="script.js"></script>
 </body>

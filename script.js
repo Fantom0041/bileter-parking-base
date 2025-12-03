@@ -94,8 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startDrag(e) {
-        // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony (przycisk pokaże "Wyjazd bez opłaty")
-        if (payButton.innerText === 'Wyjazd bez opłaty' && INITIAL_FEE <= 0) return;
+        // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony
+        if (typeof IS_PAID !== 'undefined' && IS_PAID) return;
 
         e.preventDefault();
         e.stopPropagation();
