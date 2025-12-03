@@ -1,11 +1,46 @@
 <?php
+// Disable error display to prevent HTML output that breaks JSON
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
+// Set up error handler to log errors instead of displaying them
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+    error_log("PHP Error [$errno]: $errstr in $errfile on line $errline");
+    return true;
+});
+
+// Set up exception handler
+set_exception_handler(function ($exception) {
+    error_log("Uncaught Exception: " . $exception->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Internal server error']);
+    exit;
+});
+
 header('Content-Type: application/json');
 
 // 1. Load Configuration & Data
 $config = parse_ini_file('config.ini');
+if ($config === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Configuration error']);
+    exit;
+}
+
 $json_file = 'data.json';
 $json_data = file_get_contents($json_file);
+if ($json_data === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database read error']);
+    exit;
+}
+
 $tickets = json_decode($json_data, true);
+if ($tickets === null && json_last_error() !== JSON_ERROR_NONE) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database parse error']);
+    exit;
+}
 
 // 2. Get POST Data
 $input = json_decode(file_get_contents('php://input'), true);

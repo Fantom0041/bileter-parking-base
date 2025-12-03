@@ -16,7 +16,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'create', plate: plate })
                 });
-                const data = await response.json();
+
+                // Check if response is OK before parsing JSON
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+
+                // Try to parse JSON, catch parse errors
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseError) {
+                    console.error('Failed to parse response:', parseError);
+                    const text = await response.text();
+                    console.error('Response text:', text);
+                    throw new Error('Server returned invalid response');
+                }
+
                 if (data.success) {
                     window.location.href = `index.php?ticket_id=${data.ticket_id}`;
                 } else {
@@ -26,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error(error);
-                alert('Network error');
+                alert('Network error: ' + error.message);
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
@@ -204,7 +220,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            const data = await response.json();
+            // Check if response is OK before parsing JSON
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+
+            // Try to parse JSON, catch parse errors
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                const text = await response.text();
+                console.error('Response text:', text);
+                throw new Error('Server returned invalid response');
+            }
 
             if (data.success) {
                 qrCode.innerText = data.new_ticket_qr;
@@ -217,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred. Please try again.');
+            alert('An error occurred: ' + error.message);
             payButton.innerText = originalText;
             payButton.disabled = false;
         }
