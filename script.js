@@ -53,6 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ISTNIEJĄCY BILET PARKINGOWY ---
     let currentFee = INITIAL_FEE;
     let addedMinutes = 0;
+    let debounceTimer = null;
+    let totalRotations = 0; // Liczba pełnych obrotów (360°)
 
     // Elements
     // const displayPrice = document.getElementById('displayPrice'); // Removed
@@ -72,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
     const CENTER = { x: 120, y: 120 };
     let isDragging = false;
+    let lastAngle = 0; // Śledzenie poprzedniego kąta dla wykrywania obrotów
 
     // Initialize Spinner
     if (progressCircle) {
@@ -154,43 +157,102 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateSpinner(degrees) {
+        // Wykryj przejście przez 0° (pełny obrót)
+        if (lastAngle > 270 && degrees < 90) {
+            // Obrót do przodu (przejście z 359° do 0°)
+            totalRotations++;
+        } else if (lastAngle < 90 && degrees > 270) {
+            // Obrót do tyłu (przejście z 0° do 359°)
+            if (totalRotations > 0) totalRotations--;
+        }
+        lastAngle = degrees;
+
         // 1. Update Handle Position
-        // Convert degrees back to radians for position calc (subtract 90 to match SVG coordinate system)
         const radians = (degrees - 90) * (Math.PI / 180);
         const x = CENTER.x + RADIUS * Math.cos(radians);
         const y = CENTER.y + RADIUS * Math.sin(radians);
-
-        spinnerHandle.setAttribute('transform', `translate(${x - 120}, ${y - 20})`); // Offset by handle initial pos
+        spinnerHandle.setAttribute('transform', `translate(${x - 120}, ${y - 20})`);
 
         // 2. Update Progress Arc
         const offset = CIRCUMFERENCE - (degrees / 360) * CIRCUMFERENCE;
         progressCircle.style.strokeDashoffset = offset;
 
-        // 3. Wylicz czas i opłatę
-        // Załóżmy, że 1 pełne okrążenie = 4 godziny (240 minut)
-        const totalMinutes = Math.round((degrees / 360) * 240);
+        // 3. Oblicz całkowity czas: pełne obroty (dni) + aktualny kąt (godziny w bieżącym dniu)
+        // 1 pełny obrót (360°) = 24 godziny = 1440 minut
+        const minutesFromRotations = totalRotations * 1440;
+        const minutesFromCurrentAngle = Math.round((degrees / 360) * 1440);
+        const totalMinutes = minutesFromRotations + minutesFromCurrentAngle;
 
         // Snap to 15 min increments
         const snappedMinutes = Math.ceil(totalMinutes / 15) * 15;
-
-        // Update Text
-        const hours = Math.floor(snappedMinutes / 60);
-        const mins = snappedMinutes % 60;
-        spinnerValue.innerHTML = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}<small>/h</small>`;
-
-        // Update Fee
         addedMinutes = snappedMinutes;
-        updatePrice();
+
+        // Oblicz datę i godzinę wyjazdu
+        const now = new Date();
+        const exitTime = new Date(now.getTime() + snappedMinutes * 60000);
+        const exitDay = String(exitTime.getDate()).padStart(2, '0');
+        const exitMonth = String(exitTime.getMonth() + 1).padStart(2, '0');
+        const exitHours = String(exitTime.getHours()).padStart(2, '0');
+        const exitMins = String(exitTime.getMinutes()).padStart(2, '0');
+
+        // Wyświetl datę i godzinę
+        spinnerValue.innerHTML = `${exitDay}.${exitMonth}<br><small>${exitHours}:${exitMins}</small>`;
+
+        // Clear existing debounce timer
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+        }
+
+        // Set loading state immediately
+        setLoadingState();
+
+        // Set new debounce timer (1000ms)
+        debounceTimer = setTimeout(() => {
+            fetchCalculatedFee(snappedMinutes);
+        }, 1000);
     }
 
-    function updatePrice() {
-        const additionalHours = Math.ceil(addedMinutes / 60);
-        const additionalFee = additionalHours * HOURLY_RATE;
+    function setLoadingState() {
+        payButton.innerText = 'Obliczanie opłaty...';
+        payButton.disabled = true;
+    }
 
-        currentFee = INITIAL_FEE + additionalFee;
+    async function fetchCalculatedFee(extensionMinutes) {
+        try {
+            const response = await fetch('api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'calculate_fee',
+                    ticket_id: TICKET_ID,
+                    extension_minutes: extensionMinutes
+                })
+            });
 
-        // displayPrice.innerText = currentFee.toFixed(2); // Removed
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
 
+            const data = await response.json();
+
+            if (data.success) {
+                currentFee = data.fee;
+                updatePayButton();
+            } else {
+                console.error('Fee calculation failed:', data.message);
+                // Reset to initial fee on error
+                currentFee = INITIAL_FEE;
+                updatePayButton();
+            }
+        } catch (error) {
+            console.error('Error fetching fee:', error);
+            // Reset to initial fee on error
+            currentFee = INITIAL_FEE;
+            updatePayButton();
+        }
+    }
+
+    function updatePayButton() {
         if (currentFee > 0) {
             payButton.innerText = `Zapłać ${currentFee.toFixed(2)} zł`;
             payButton.disabled = false;

@@ -88,6 +88,63 @@ if ($action === 'create') {
     exit;
 }
 
+if ($action === 'calculate_fee') {
+    try {
+        $ticket_id = $input['ticket_id'] ?? null;
+        $extension_minutes = $input['extension_minutes'] ?? 0;
+
+        if (!$ticket_id || !isset($tickets[$ticket_id])) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Bilet nie został znaleziony']);
+            exit;
+        }
+
+        $ticket = $tickets[$ticket_id];
+
+        // Jeśli bilet już opłacony, zwróć 0
+        if ($ticket['status'] === 'paid') {
+            echo json_encode([
+                'success' => true,
+                'fee' => 0,
+                'currency' => $config['currency']
+            ]);
+            exit;
+        }
+
+        // Oblicz czas trwania
+        $entry_time = new DateTime($ticket['entry_time']);
+        $current_time = new DateTime();
+        $current_time->modify("+{$extension_minutes} minutes");
+
+        $interval = $entry_time->diff($current_time);
+        $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
+
+        // Sprawdź okres bezpłatny
+        if ($duration_minutes <= $config['free_minutes']) {
+            $fee = 0;
+        } else {
+            // Oblicz opłatę godzinową
+            $hours = ceil($duration_minutes / 60);
+            $fee = $hours * $config['hourly_rate'];
+        }
+
+        echo json_encode([
+            'success' => true,
+            'fee' => $fee,
+            'currency' => $config['currency'],
+            'duration_minutes' => $duration_minutes
+        ]);
+    } catch (Exception $e) {
+        error_log("Error calculating fee: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Błąd podczas obliczania opłaty: ' . $e->getMessage()
+        ]);
+    }
+    exit;
+}
+
 // Opłacenie istniejącego biletu
 $ticket_id = $input['ticket_id'] ?? null;
 $amount = $input['amount'] ?? 0;

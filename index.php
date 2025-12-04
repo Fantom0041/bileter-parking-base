@@ -88,18 +88,6 @@ if ($ticket) {
                 <h2>Szczegóły parkowania</h2>
             </header>
 
-            <!-- Details Grid (Moved to Top) -->
-            <section class="details-grid">
-                <div class="info-card">
-                    <span class="label">Czas wjazdu</span>
-                    <span class="value"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
-                </div>
-                <div class="info-card">
-                    <span class="label">Strefa</span>
-                    <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
-                </div>
-            </section>
-
             <!-- Hero: License Plate -->
             <section class="plate-section">
                 <div class="license-plate" id="licensePlateContainer">
@@ -119,6 +107,18 @@ if ($ticket) {
                 </div>
             </section>
 
+            <!-- Details Grid -->
+            <section class="details-grid">
+                <div class="info-card">
+                    <span class="label">Czas wjazdu</span>
+                    <span class="value"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
+                </div>
+                <div class="info-card">
+                    <span class="label">Strefa</span>
+                    <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
+                </div>
+            </section>
+
             <!-- Status Indicator -->
             <section class="status-section">
                 <div class="status-badge <?php echo $is_free_period ? 'status-free' : 'status-paid'; ?>">
@@ -130,7 +130,7 @@ if ($ticket) {
             <section class="timer-section">
                 <div class="timer-circle" id="spinnerContainer">
                     <div class="timer-content">
-                        <span class="label">START</span>
+                        <span class="label">WYJAZD</span>
                         <span class="value" id="spinnerValue">00:00<small>/h</small></span>
                     </div>
 

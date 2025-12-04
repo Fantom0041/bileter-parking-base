@@ -47,7 +47,7 @@ body {
     display: flex;
     align-items: center;
     margin-bottom: 10px;
-   
+
 }
 
 .brand-logo {
@@ -157,7 +157,8 @@ body {
 .status-section {
     display: flex;
     justify-content: center;
-    margin-bottom: 10px;;
+    margin-bottom: 10px;
+    ;
 }
 
 .status-badge {
@@ -295,7 +296,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    margin-bottom:  10px;
+    margin-bottom: 10px;
 }
 
 .payment-summary .label {
@@ -598,4 +599,3 @@ body {
 .timer-content .value {
     font-size: 36px;
 }
-
