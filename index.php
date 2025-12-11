@@ -108,14 +108,31 @@ if ($ticket) {
             </section>
 
             <!-- Details Grid -->
-            <section class="details-grid">
-                <div class="info-card">
+            <section class="details-section">
+                <div class="info-card-full">
+                    <span class="label">Strefa</span>
+                    <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
+                </div>
+                <div class="info-card-full">
                     <span class="label">Czas wjazdu</span>
                     <span class="value"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
                 </div>
-                <div class="info-card">
-                    <span class="label">Strefa</span>
-                    <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
+            </section>
+            
+            <!-- Exit Time Display -->
+            <section class="exit-time-section">
+                <div class="exit-time-card">
+                    <span class="label">Planowany wyjazd</span>
+                    <div class="exit-time-display">
+                        <button class="exit-time-btn" id="exitDateBtn">
+                            <span class="exit-label">Data</span>
+                            <span class="exit-value" id="exitDateValue">--.--.----</span>
+                        </button>
+                        <button class="exit-time-btn" id="exitTimeBtn">
+                            <span class="exit-label">Godzina</span>
+                            <span class="exit-value" id="exitTimeValue">--:--</span>
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -128,13 +145,32 @@ if ($ticket) {
 
             <!-- Interactive Spinner -->
             <section class="timer-section">
-                <!-- Mode Selector -->
-                <div class="mode-selector">
-                    <button class="mode-btn active" data-mode="daily">Dobowy</button>
-                    <button class="mode-btn" data-mode="multiday">Wielodniowy</button>
+                <!-- Mode Configuration Panel -->
+                <div class="mode-config-panel">
+                    <div class="mode-group">
+                        <label>Tryb:</label>
+                        <div class="mode-buttons">
+                            <button class="config-btn active" data-config="time_mode" data-value="daily">Dzienny</button>
+                            <button class="config-btn" data-config="time_mode" data-value="hourly">Godzinowy</button>
+                        </div>
+                    </div>
+                    <div class="mode-group">
+                        <label>Długość:</label>
+                        <div class="mode-buttons">
+                            <button class="config-btn" data-config="duration_mode" data-value="single_day">1-dniowy</button>
+                            <button class="config-btn active" data-config="duration_mode" data-value="multi_day">Wielodniowy</button>
+                        </div>
+                    </div>
+                    <div class="mode-group">
+                        <label>Liczenie:</label>
+                        <div class="mode-buttons">
+                            <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od wjazdu</button>
+                            <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od 00:00</button>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Multi-day mode unit selector (hidden by default) -->
+                <!-- Unit selector (for multi-day modes with hourly/daily + multi_day) -->
                 <div class="unit-selector" id="unitSelector" style="display: none;">
                     <button class="unit-btn active" data-unit="days">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -150,7 +186,7 @@ if ($ticket) {
                             <circle cx="12" cy="12" r="10"></circle>
                             <polyline points="12 6 12 12 16 14"></polyline>
                         </svg>
-                        <span>Godziny</span>
+                        <span>Minuty</span>
                     </button>
                 </div>
 
@@ -223,6 +259,11 @@ if ($ticket) {
         const HOURLY_RATE = <?php echo $config['hourly_rate']; ?>;
         const IS_PAID = <?php echo ($ticket && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
         const ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:s') : ''; ?>";
+        
+        // Parking modes configuration
+        const TIME_MODE = "<?php echo $config['time_mode'] ?? 'daily'; ?>"; // daily or hourly
+        const DURATION_MODE = "<?php echo $config['duration_mode'] ?? 'multi_day'; ?>"; // single_day or multi_day
+        const DAY_COUNTING = "<?php echo $config['day_counting'] ?? 'from_entry'; ?>"; // from_entry or from_midnight
     </script>
     <script src="script.js"></script>
 </body>

@@ -54,15 +54,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFee = INITIAL_FEE;
     let addedMinutes = 0;
     let debounceTimer = null;
-    let totalRotations = 0; // Liczba pełnych obrotów (360°)
 
-    // Parking mode: 'daily' or 'multiday'
-    let parkingMode = 'daily';
-
-    // Multi-day mode state: 'days' or 'hours'
-    let multidayUnit = 'days';
+    // Current editing unit for multi-day modes
+    let currentUnit = 'days'; // 'days' or 'minutes'
     let selectedDays = 0;
-    let selectedHours = 0;
+    let selectedMinutes = 0;
 
     // Elements
     // const displayPrice = document.getElementById('displayPrice'); // Removed
@@ -71,11 +67,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const successOverlay = document.getElementById('successOverlay');
     const qrCode = document.getElementById('qrCode');
 
-    // Mode selector elements
-    const modeButtons = document.querySelectorAll('.mode-btn');
+    // UI elements
     const unitSelector = document.getElementById('unitSelector');
     const unitButtons = document.querySelectorAll('.unit-btn');
     const spinnerLabel = document.getElementById('spinnerLabel');
+    const configButtons = document.querySelectorAll('.config-btn');
+    const exitDateBtn = document.getElementById('exitDateBtn');
+    const exitTimeBtn = document.getElementById('exitTimeBtn');
+    const exitDateValue = document.getElementById('exitDateValue');
+    const exitTimeValue = document.getElementById('exitTimeValue');
+
+    // Current mode configuration (can be changed by user)
+    let currentTimeMode = TIME_MODE;
+    let currentDurationMode = DURATION_MODE;
+    let currentDayCounting = DAY_COUNTING;
+
+    // Determine if spinner should be editable
+    // Editable for: multi_day (all) OR hourly+single_day
+    // NOT editable for: daily+single_day
+    let isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
+
+    // Determine if we need unit selector (only for hourly + multi_day)
+    let needsUnitSelector = currentTimeMode === 'hourly' && currentDurationMode === 'multi_day';
 
     // Spinner Elements
     const spinnerContainer = document.getElementById('spinnerContainer');
@@ -90,39 +103,117 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDragging = false;
     let lastAngle = 0; // Śledzenie poprzedniego kąta dla wykrywania obrotów
 
-    // Mode switching
-    modeButtons.forEach(btn => {
+    // Initialize configuration buttons based on config
+    configButtons.forEach(btn => {
+        const configType = btn.dataset.config;
+        const value = btn.dataset.value;
+
+        // Set initial active state based on config
+        if ((configType === 'time_mode' && value === currentTimeMode) ||
+            (configType === 'duration_mode' && value === currentDurationMode) ||
+            (configType === 'day_counting' && value === currentDayCounting)) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Configuration buttons handler
+    configButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            // Remove active class from all buttons
-            modeButtons.forEach(b => b.classList.remove('active'));
-            // Add active class to clicked button
+            const configType = btn.dataset.config;
+            const value = btn.dataset.value;
+
+            // Update active state for this config group
+            const groupButtons = document.querySelectorAll(`[data-config="${configType}"]`);
+            groupButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
-            // Update parking mode
-            parkingMode = btn.dataset.mode;
-
-            // Show/hide unit selector
-            if (parkingMode === 'multiday') {
-                unitSelector.style.display = 'flex';
-                multidayUnit = 'days';
-                selectedDays = 0;
-                selectedHours = 0;
-                // Reset unit buttons
-                unitButtons.forEach(btn => btn.classList.remove('active'));
-                unitButtons[0].classList.add('active');
-                updateSpinnerLabel();
-            } else {
-                unitSelector.style.display = 'none';
+            // Update current configuration
+            if (configType === 'time_mode') {
+                currentTimeMode = value;
+            } else if (configType === 'duration_mode') {
+                currentDurationMode = value;
+            } else if (configType === 'day_counting') {
+                currentDayCounting = value;
             }
 
-            // Reset spinner
-            totalRotations = 0;
-            lastAngle = 0;
-            updateSpinner(0);
+            // Recalculate UI state
+            isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
+            needsUnitSelector = currentTimeMode === 'hourly' && currentDurationMode === 'multi_day';
+
+            // Reset selections
+            selectedDays = 0;
+            selectedMinutes = 0;
+            currentUnit = 'days';
+
+            // Reinitialize UI
+            initializeUI();
         });
     });
 
-    // Unit buttons (days/hours) in multiday mode
+    // Initialize UI based on modes
+    function initializeUI() {
+        // Show/hide unit selector
+        if (needsUnitSelector) {
+            unitSelector.style.display = 'flex';
+        } else {
+            unitSelector.style.display = 'none';
+        }
+
+        // Enable/disable spinner
+        if (!isEditable) {
+            spinnerContainer.style.opacity = '0.5';
+            spinnerContainer.style.pointerEvents = 'none';
+            spinnerContainer.style.cursor = 'not-allowed';
+        } else {
+            spinnerContainer.style.opacity = '1';
+            spinnerContainer.style.pointerEvents = 'auto';
+            spinnerContainer.style.cursor = 'grab';
+        }
+
+        // Reset spinner position
+        updateSpinner(0);
+        updateSpinnerLabel();
+
+        // Calculate end time for single_day modes
+        if (currentDurationMode === 'single_day') {
+            calculateEndTime();
+        } else {
+            // Initialize exit time display with current time
+            const entryTime = new Date(ENTRY_TIME);
+            updateExitTimeDisplay(entryTime);
+        }
+    }
+
+    // Exit time buttons - switch between editing date or time
+    if (exitDateBtn && exitTimeBtn) {
+        exitDateBtn.addEventListener('click', () => {
+            if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
+                currentUnit = 'days';
+                exitDateBtn.classList.add('active');
+                exitTimeBtn.classList.remove('active');
+                unitButtons.forEach(b => b.classList.remove('active'));
+                unitButtons[0].classList.add('active');
+                updateSpinnerLabel();
+                updateSpinner(0);
+            }
+        });
+
+        exitTimeBtn.addEventListener('click', () => {
+            if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
+                currentUnit = 'minutes';
+                exitTimeBtn.classList.add('active');
+                exitDateBtn.classList.remove('active');
+                unitButtons.forEach(b => b.classList.remove('active'));
+                unitButtons[1].classList.add('active');
+                updateSpinnerLabel();
+                updateSpinner(0);
+            }
+        });
+    }
+
+    // Unit buttons (days/minutes) for hourly + multi_day mode
     unitButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             // Remove active class from all unit buttons
@@ -130,8 +221,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add active class to clicked button
             btn.classList.add('active');
 
-            // Update unit
-            multidayUnit = btn.dataset.unit;
+            // Update current unit
+            currentUnit = btn.dataset.unit;
+
+            // Update exit time buttons
+            if (currentUnit === 'days') {
+                exitDateBtn.classList.add('active');
+                exitTimeBtn.classList.remove('active');
+            } else {
+                exitTimeBtn.classList.add('active');
+                exitDateBtn.classList.remove('active');
+            }
 
             // Reset spinner position
             updateSpinnerLabel();
@@ -140,13 +240,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function updateSpinnerLabel() {
-        if (parkingMode === 'daily') {
-            spinnerLabel.textContent = 'WYJAZD';
-        } else if (parkingMode === 'multiday') {
-            if (multidayUnit === 'days') {
-                spinnerLabel.textContent = 'DNI';
+        if (currentTimeMode === 'daily') {
+            if (currentDurationMode === 'single_day') {
+                spinnerLabel.textContent = 'WYJAZD';
             } else {
-                spinnerLabel.textContent = 'GODZINY';
+                spinnerLabel.textContent = 'DATA';
+            }
+        } else if (currentTimeMode === 'hourly') {
+            if (currentDurationMode === 'single_day') {
+                spinnerLabel.textContent = 'WYJAZD';
+            } else {
+                if (currentUnit === 'days') {
+                    spinnerLabel.textContent = 'DATA';
+                } else {
+                    spinnerLabel.textContent = 'GODZINA';
+                }
             }
         }
     }
@@ -156,19 +264,24 @@ document.addEventListener('DOMContentLoaded', () => {
         progressCircle.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
         progressCircle.style.strokeDashoffset = CIRCUMFERENCE; // Start empty
 
-        // Make spinner container draggable with visual feedback
-        spinnerContainer.style.cursor = 'grab';
-        spinnerContainer.style.userSelect = 'none';
+        // Make spinner container draggable with visual feedback (only if editable)
+        if (isEditable) {
+            spinnerContainer.style.cursor = 'grab';
+            spinnerContainer.style.userSelect = 'none';
 
-        // Event Listeners for Dragging - consolidated on container
-        spinnerContainer.addEventListener('mousedown', startDrag);
-        spinnerContainer.addEventListener('touchstart', startDrag, { passive: false });
+            // Event Listeners for Dragging - consolidated on container
+            spinnerContainer.addEventListener('mousedown', startDrag);
+            spinnerContainer.addEventListener('touchstart', startDrag, { passive: false });
 
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', drag, { passive: false });
 
-        document.addEventListener('mouseup', endDrag);
-        document.addEventListener('touchend', endDrag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+        }
+
+        // Initialize UI
+        initializeUI();
     }
 
     function startDrag(e) {
@@ -243,76 +356,85 @@ document.addEventListener('DOMContentLoaded', () => {
         progressCircle.style.strokeDashoffset = offset;
 
         let totalMinutes = 0;
+        const entryTime = new Date(ENTRY_TIME);
 
-        if (parkingMode === 'daily') {
-            // TRYB DOBOWY: 1 obrót = 24 godziny, max 23:59, start od godziny wjazdu
-            const entryTime = new Date(ENTRY_TIME);
-            const entryHours = entryTime.getHours();
-            const entryMinutes = entryTime.getMinutes();
-            const entryTotalMinutes = entryHours * 60 + entryMinutes;
+        // 3.2: daily / multi_day - tylko dni, 7 dni = pełny obrót
+        if (currentTimeMode === 'daily' && currentDurationMode === 'multi_day') {
+            const daysFromAngle = Math.floor((degrees / 360) * 7);
+            selectedDays = daysFromAngle;
 
-            // Oblicz minuty z kąta (0-1439 minut)
-            const minutesFromAngle = Math.round((degrees / 360) * 1440);
+            // Oblicz datę wyjazdu
+            const exitDate = new Date(entryTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
+            const day = String(exitDate.getDate()).padStart(2, '0');
+            const month = String(exitDate.getMonth() + 1).padStart(2, '0');
+            const year = exitDate.getFullYear();
 
-            // Ogranicz do maksymalnie 23:59 (1439 minut)
-            totalMinutes = Math.min(minutesFromAngle, 1439);
+            // Wyświetl pełną datę
+            spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
 
-            // Przyrost co 1 minutę
+            // Update exit time display
+            updateExitTimeDisplay(exitDate);
+
+            // Oblicz minuty
+            totalMinutes = selectedDays * 1440;
             addedMinutes = totalMinutes;
+        }
+        // 3.3: hourly / single_day - tylko minuty, 1h = pełny obrót
+        else if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
+            // 1 pełny obrót = 60 minut
+            const minutesFromAngle = Math.round((degrees / 360) * 60);
+            selectedMinutes = minutesFromAngle;
 
-            // Oblicz godzinę wyjazdu (od godziny wjazdu)
-            const totalMinutesInDay = (entryTotalMinutes + addedMinutes) % 1440;
-            const hours = Math.floor(totalMinutesInDay / 60);
-            const mins = totalMinutesInDay % 60;
+            // Oblicz czas wyjazdu
+            const exitTime = new Date(entryTime.getTime() + minutesFromAngle * 60000);
+            const hours = String(exitTime.getHours()).padStart(2, '0');
+            const mins = String(exitTime.getMinutes()).padStart(2, '0');
 
-            // Wyświetl czas
-            spinnerValue.innerHTML = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}<small>/h</small>`;
-            spinnerLabel.textContent = 'WYJAZD';
+            // Wyświetl godzinę
+            spinnerValue.innerHTML = `${hours}:${mins}`;
 
-        } else if (parkingMode === 'multiday') {
-            // TRYB WIELODNIOWY
-            if (multidayUnit === 'days') {
-                // Wybór dni: pełny obrót = 30 dni
-                const daysFromAngle = Math.floor((degrees / 360) * 30);
+            // Update exit time display
+            updateExitTimeDisplay(exitTime);
+
+            totalMinutes = minutesFromAngle;
+            addedMinutes = totalMinutes;
+        }
+        // 3.4: hourly / multi_day - dni + minuty, przełączanie
+        else if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
+            if (currentUnit === 'days') {
+                // Wybór dni: 7 dni = pełny obrót
+                const daysFromAngle = Math.floor((degrees / 360) * 7);
                 selectedDays = daysFromAngle;
 
                 // Oblicz datę wyjazdu
-                const now = new Date();
-                const exitDate = new Date(now.getTime() + selectedDays * 24 * 60 * 60 * 1000);
+                const exitDate = new Date(entryTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
                 const day = String(exitDate.getDate()).padStart(2, '0');
                 const month = String(exitDate.getMonth() + 1).padStart(2, '0');
                 const year = exitDate.getFullYear();
 
-                // Wyświetl pełną datę (mniejsza czcionka)
+                // Wyświetl datę
                 spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
-                spinnerLabel.textContent = 'DATA';
 
-                // Oblicz minuty (dni * 24h * 60min)
-                totalMinutes = selectedDays * 1440;
-
+                // Update exit time display
+                updateExitTimeDisplay(exitDate);
             } else {
-                // Wybór godzin i minut: pełny obrót = 24 godziny, start od godziny wjazdu
-                const entryTime = new Date(ENTRY_TIME);
-                const entryHours = entryTime.getHours();
-                const entryMinutes = entryTime.getMinutes();
-                const entryTotalMinutes = entryHours * 60 + entryMinutes;
+                // Wybór minut: 1h = pełny obrót
+                const minutesFromAngle = Math.round((degrees / 360) * 60);
+                selectedMinutes = minutesFromAngle;
 
-                // Oblicz minuty od północy na podstawie kąta
-                const minutesFromAngle = Math.round((degrees / 360) * 1440);
+                // Oblicz czas wyjazdu
+                const exitTime = new Date(entryTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
+                const hours = String(exitTime.getHours()).padStart(2, '0');
+                const mins = String(exitTime.getMinutes()).padStart(2, '0');
 
-                // Dodaj minuty wjazdu do wybranego czasu
-                const totalMinutesInDay = (entryTotalMinutes + minutesFromAngle) % 1440;
-                const hours = Math.floor(totalMinutesInDay / 60);
-                const mins = totalMinutesInDay % 60;
+                // Wyświetl godzinę
+                spinnerValue.innerHTML = `${hours}:${mins}`;
 
-                // Wyświetl godzinę i minuty
-                spinnerValue.innerHTML = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-                spinnerLabel.textContent = 'GODZINA';
-
-                // Oblicz minuty (dni + godziny od wjazdu)
-                totalMinutes = selectedDays * 1440 + minutesFromAngle;
+                // Update exit time display
+                updateExitTimeDisplay(exitTime);
             }
 
+            totalMinutes = selectedDays * 1440 + selectedMinutes;
             addedMinutes = totalMinutes;
         }
 
@@ -328,6 +450,20 @@ document.addEventListener('DOMContentLoaded', () => {
         debounceTimer = setTimeout(() => {
             fetchCalculatedFee(addedMinutes);
         }, 1000);
+    }
+
+    // Update exit time display fields
+    function updateExitTimeDisplay(exitTime) {
+        if (!exitDateValue || !exitTimeValue) return;
+
+        const day = String(exitTime.getDate()).padStart(2, '0');
+        const month = String(exitTime.getMonth() + 1).padStart(2, '0');
+        const year = exitTime.getFullYear();
+        const hours = String(exitTime.getHours()).padStart(2, '0');
+        const mins = String(exitTime.getMinutes()).padStart(2, '0');
+
+        exitDateValue.textContent = `${day}.${month}.${year}`;
+        exitTimeValue.textContent = `${hours}:${mins}`;
     }
 
     function setLoadingState() {
