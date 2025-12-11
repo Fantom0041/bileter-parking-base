@@ -183,8 +183,79 @@ body {
 /* Timer Circle */
 .timer-section {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     margin-bottom: 10px;
+}
+
+/* Mode Selector */
+.mode-selector {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    background: white;
+    padding: 6px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mode-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(106, 27, 154, 0.3);
+}
+
+/* Multi-day Toggle */
+.multiday-toggle {
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 280px;
+}
+
+.toggle-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: white;
+    border: 2px solid var(--primary);
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--shadow-soft);
+}
+
+.toggle-btn:hover {
+    background: rgba(106, 27, 154, 0.05);
+}
+
+.toggle-btn:active {
+    transform: scale(0.98);
+}
+
+.toggle-btn svg {
+    transition: transform 0.2s;
+}
+
+.toggle-btn.selecting-hours svg {
+    transform: rotate(90deg);
 }
 
 .timer-circle {

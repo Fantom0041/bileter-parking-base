@@ -56,12 +56,27 @@ document.addEventListener('DOMContentLoaded', () => {
     let debounceTimer = null;
     let totalRotations = 0; // Liczba pełnych obrotów (360°)
 
+    // Parking mode: 'daily' or 'multiday'
+    let parkingMode = 'daily';
+
+    // Multi-day mode state: 'days' or 'hours'
+    let multidayUnit = 'days';
+    let selectedDays = 0;
+    let selectedHours = 0;
+
     // Elements
     // const displayPrice = document.getElementById('displayPrice'); // Removed
     const payButton = document.getElementById('payButton');
     const paymentSheet = document.getElementById('paymentSheet');
     const successOverlay = document.getElementById('successOverlay');
     const qrCode = document.getElementById('qrCode');
+
+    // Mode selector elements
+    const modeButtons = document.querySelectorAll('.mode-btn');
+    const multidayToggle = document.getElementById('multidayToggle');
+    const toggleUnitBtn = document.getElementById('toggleUnitBtn');
+    const toggleLabel = document.getElementById('toggleLabel');
+    const spinnerLabel = document.getElementById('spinnerLabel');
 
     // Spinner Elements
     const spinnerContainer = document.getElementById('spinnerContainer');
@@ -75,6 +90,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const CENTER = { x: 120, y: 120 };
     let isDragging = false;
     let lastAngle = 0; // Śledzenie poprzedniego kąta dla wykrywania obrotów
+
+    // Mode switching
+    modeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active class from all buttons
+            modeButtons.forEach(b => b.classList.remove('active'));
+            // Add active class to clicked button
+            btn.classList.add('active');
+
+            // Update parking mode
+            parkingMode = btn.dataset.mode;
+
+            // Show/hide multiday toggle
+            if (parkingMode === 'multiday') {
+                multidayToggle.style.display = 'block';
+                multidayUnit = 'days';
+                selectedDays = 0;
+                selectedHours = 0;
+                updateToggleButton();
+            } else {
+                multidayToggle.style.display = 'none';
+            }
+
+            // Reset spinner
+            totalRotations = 0;
+            lastAngle = 0;
+            updateSpinner(0);
+        });
+    });
+
+    // Toggle between days and hours in multiday mode
+    if (toggleUnitBtn) {
+        toggleUnitBtn.addEventListener('click', () => {
+            if (multidayUnit === 'days') {
+                multidayUnit = 'hours';
+                totalRotations = 0;
+                lastAngle = 0;
+            } else {
+                multidayUnit = 'days';
+                totalRotations = 0;
+                lastAngle = 0;
+            }
+            updateToggleButton();
+            updateSpinner(0);
+        });
+    }
+
+    function updateToggleButton() {
+        if (multidayUnit === 'days') {
+            toggleLabel.textContent = 'Wybierz dni';
+            toggleUnitBtn.classList.remove('selecting-hours');
+            spinnerLabel.textContent = 'DNI';
+        } else {
+            toggleLabel.textContent = 'Wybierz godziny';
+            toggleUnitBtn.classList.add('selecting-hours');
+            spinnerLabel.textContent = 'GODZINY';
+        }
+    }
 
     // Initialize Spinner
     if (progressCircle) {
@@ -157,16 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateSpinner(degrees) {
-        // Wykryj przejście przez 0° (pełny obrót)
-        if (lastAngle > 270 && degrees < 90) {
-            // Obrót do przodu (przejście z 359° do 0°)
-            totalRotations++;
-        } else if (lastAngle < 90 && degrees > 270) {
-            // Obrót do tyłu (przejście z 0° do 359°)
-            if (totalRotations > 0) totalRotations--;
-        }
-        lastAngle = degrees;
-
         // 1. Update Handle Position
         const radians = (degrees - 90) * (Math.PI / 180);
         const x = CENTER.x + RADIUS * Math.cos(radians);
@@ -177,26 +240,56 @@ document.addEventListener('DOMContentLoaded', () => {
         const offset = CIRCUMFERENCE - (degrees / 360) * CIRCUMFERENCE;
         progressCircle.style.strokeDashoffset = offset;
 
-        // 3. Oblicz całkowity czas: pełne obroty (dni) + aktualny kąt (godziny w bieżącym dniu)
-        // 1 pełny obrót (360°) = 24 godziny = 1440 minut
-        const minutesFromRotations = totalRotations * 1440;
-        const minutesFromCurrentAngle = Math.round((degrees / 360) * 1440);
-        const totalMinutes = minutesFromRotations + minutesFromCurrentAngle;
+        let totalMinutes = 0;
 
-        // Snap to 15 min increments
-        const snappedMinutes = Math.ceil(totalMinutes / 15) * 15;
-        addedMinutes = snappedMinutes;
+        if (parkingMode === 'daily') {
+            // TRYB DOBOWY: 1 obrót = 24 godziny, max 23:59
+            // Oblicz minuty z kąta (0-1439 minut)
+            const minutesFromAngle = Math.round((degrees / 360) * 1440);
 
-        // Oblicz datę i godzinę wyjazdu
-        const now = new Date();
-        const exitTime = new Date(now.getTime() + snappedMinutes * 60000);
-        const exitDay = String(exitTime.getDate()).padStart(2, '0');
-        const exitMonth = String(exitTime.getMonth() + 1).padStart(2, '0');
-        const exitHours = String(exitTime.getHours()).padStart(2, '0');
-        const exitMins = String(exitTime.getMinutes()).padStart(2, '0');
+            // Ogranicz do maksymalnie 23:59 (1439 minut)
+            totalMinutes = Math.min(minutesFromAngle, 1439);
 
-        // Wyświetl datę i godzinę
-        spinnerValue.innerHTML = `${exitDay}.${exitMonth}<br><small>${exitHours}:${exitMins}</small>`;
+            // Przyrost co 1 minutę
+            addedMinutes = totalMinutes;
+
+            // Oblicz godzinę wyjazdu
+            const hours = Math.floor(addedMinutes / 60);
+            const mins = addedMinutes % 60;
+
+            // Wyświetl czas
+            spinnerValue.innerHTML = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}<small>/h</small>`;
+            spinnerLabel.textContent = 'WYJAZD';
+
+        } else if (parkingMode === 'multiday') {
+            // TRYB WIELODNIOWY
+            if (multidayUnit === 'days') {
+                // Wybór dni: pełny obrót = 30 dni
+                const daysFromAngle = Math.floor((degrees / 360) * 30);
+                selectedDays = daysFromAngle;
+
+                // Wyświetl liczbę dni
+                spinnerValue.innerHTML = `${selectedDays}<small>dni</small>`;
+                spinnerLabel.textContent = 'DNI';
+
+                // Oblicz minuty (dni * 24h * 60min)
+                totalMinutes = selectedDays * 1440 + selectedHours * 60;
+
+            } else {
+                // Wybór godzin: pełny obrót = 24 godziny
+                const hoursFromAngle = Math.floor((degrees / 360) * 24);
+                selectedHours = hoursFromAngle;
+
+                // Wyświetl liczbę godzin
+                spinnerValue.innerHTML = `${selectedHours}<small>h</small>`;
+                spinnerLabel.textContent = 'GODZINY';
+
+                // Oblicz minuty
+                totalMinutes = selectedDays * 1440 + selectedHours * 60;
+            }
+
+            addedMinutes = totalMinutes;
+        }
 
         // Clear existing debounce timer
         if (debounceTimer) {
@@ -208,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Set new debounce timer (1000ms)
         debounceTimer = setTimeout(() => {
-            fetchCalculatedFee(snappedMinutes);
+            fetchCalculatedFee(addedMinutes);
         }, 1000);
     }
 

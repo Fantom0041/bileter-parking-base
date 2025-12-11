@@ -128,9 +128,25 @@ if ($ticket) {
 
             <!-- Interactive Spinner -->
             <section class="timer-section">
+                <!-- Mode Selector -->
+                <div class="mode-selector">
+                    <button class="mode-btn active" data-mode="daily">Dobowy</button>
+                    <button class="mode-btn" data-mode="multiday">Wielodniowy</button>
+                </div>
+
+                <!-- Multi-day mode toggle button (hidden by default) -->
+                <div class="multiday-toggle" id="multidayToggle" style="display: none;">
+                    <button class="toggle-btn" id="toggleUnitBtn">
+                        <span id="toggleLabel">Wybierz dni</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+
                 <div class="timer-circle" id="spinnerContainer">
                     <div class="timer-content">
-                        <span class="label">WYJAZD</span>
+                        <span class="label" id="spinnerLabel">WYJAZD</span>
                         <span class="value" id="spinnerValue">00:00<small>/h</small></span>
                     </div>
 
