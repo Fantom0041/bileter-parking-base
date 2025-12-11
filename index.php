@@ -134,13 +134,23 @@ if ($ticket) {
                     <button class="mode-btn" data-mode="multiday">Wielodniowy</button>
                 </div>
 
-                <!-- Multi-day mode toggle button (hidden by default) -->
-                <div class="multiday-toggle" id="multidayToggle" style="display: none;">
-                    <button class="toggle-btn" id="toggleUnitBtn">
-                        <span id="toggleLabel">Wybierz dni</span>
+                <!-- Multi-day mode unit selector (hidden by default) -->
+                <div class="unit-selector" id="unitSelector" style="display: none;">
+                    <button class="unit-btn active" data-unit="days">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"></polyline>
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
                         </svg>
+                        <span>Dni</span>
+                    </button>
+                    <button class="unit-btn" data-unit="hours">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>Godziny</span>
                     </button>
                 </div>
 
@@ -212,6 +222,7 @@ if ($ticket) {
         const INITIAL_FEE = <?php echo $fee; ?>;
         const HOURLY_RATE = <?php echo $config['hourly_rate']; ?>;
         const IS_PAID = <?php echo ($ticket && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
+        const ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:s') : ''; ?>";
     </script>
     <script src="script.js"></script>
 </body>
