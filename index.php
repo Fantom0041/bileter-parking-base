@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Europe/Warsaw');
 // 1. Load Configuration
 $config = parse_ini_file('config.ini');
 
@@ -89,7 +90,7 @@ if ($ticket) {
                     <!-- Placeholder for Client Logo -->
                     <div class="client-logo-placeholder" style="flex: 1;"></div>
                 </div>
-               
+
             </header>
 
             <!-- Hero: License Plate -->

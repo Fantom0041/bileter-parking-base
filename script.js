@@ -104,6 +104,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastAngle = 0; // Śledzenie poprzedniego kąta dla wykrywania obrotów
     let totalDegrees = 0;
     
+    // Real-time clock state
+    let clockInterval = null;
+    let isUserInteracted = false;
+    
     // --- Phase 3: Pre-booking Entry Time Editing ---
     const editEntryBtn = document.getElementById('editEntryBtn');
     const entryTimeInput = document.getElementById('entryTimeInput');
@@ -217,8 +221,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Reinitialize UI
             initializeUI();
+            
+            // Reset interaction state on mode change?
+            // User might want to keep "current time" tracking if just switching views
+            // But if they manually set a time, and switch mode, maybe reset is safer?
+            // Let's reset to auto-clock for fresh mode experience
+            isUserInteracted = false;
+            startRealTimeClock();
         });
     });
+
+    function startRealTimeClock() {
+        if (clockInterval) clearInterval(clockInterval);
+        
+        // Update immediately
+        updateRealTimeClock();
+        
+        clockInterval = setInterval(() => {
+            if (!isUserInteracted) {
+                updateRealTimeClock();
+            }
+        }, 1000);
+    }
+
+    function updateRealTimeClock() {
+        if (isUserInteracted) return;
+        
+        const now = new Date();
+        const entry = new Date(ENTRY_TIME);
+        
+        // Calculate minutes difference
+        const diffMs = now - entry;
+        const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+        
+        // Convert to degrees based on current mode
+        let newDegrees = 0;
+        
+        if (currentTimeMode === 'daily') {
+            // 360 deg = 7 days = 10080 mins
+            newDegrees = (diffMinutes / 10080) * 360;
+        } else if (currentTimeMode === 'hourly') {
+             if (currentDurationMode === 'single_day') {
+                 // 360 deg = 60 mins
+                 newDegrees = (diffMinutes / 60) * 360;
+             } else {
+                 // Multi-day hourly
+                 if (currentUnit === 'days') {
+                     // 360 deg = 7 days
+                     newDegrees = (diffMinutes / 10080) * 360; // Approximate for days view
+                 } else {
+                     // 360 deg = 60 mins (Minutes view)
+                     // Here we only show minutes part of the total duration?
+                     // Or total duration mapped modulo?
+                     // "Minutes" unit usually adds to the day. 
+                     // Valid logic: just show minutes component of current time?
+                     // Let's keep consistency: map total minutes to rotation
+                     newDegrees = (diffMinutes / 60) * 360;
+                 }
+             }
+        }
+        
+        totalDegrees = newDegrees;
+        updateSpinner(totalDegrees);
+    }
 
     // Initialize UI based on modes
     function initializeUI() {
@@ -296,6 +361,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Initialize exit time display with current time
             const entryTime = new Date(ENTRY_TIME);
             updateExitTimeDisplay(entryTime);
+        }
+
+        // Start/Restart Clock if not interacted
+        if (!isUserInteracted) {
+            startRealTimeClock();
         }
     }
 
@@ -412,6 +482,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         lastAngle = degrees;
         isDragging = true;
+        isUserInteracted = true; // Stop auto-clock
+        if (clockInterval) clearInterval(clockInterval);
+        
         spinnerContainer.style.cursor = 'grabbing';
         if (spinnerHandle) spinnerHandle.style.transition = 'none'; // Disable transition for direct tracking
     }
@@ -648,6 +721,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Obsługa płatności
     payButton.addEventListener('click', async () => {
+        isUserInteracted = true; // Stop clock updates when paying
+        if (clockInterval) clearInterval(clockInterval);
+
         // Phase 4: Time Drift Check
         const serverTimeStub = new Date(); // In real app, we might need true server time, but client time is OK for drift "Start vs Now" check
         if (currentExitTime < serverTimeStub) {

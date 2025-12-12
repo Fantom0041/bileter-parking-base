@@ -2,6 +2,7 @@
 // Wyłącz wyświetlanie błędów w HTML, żeby nie psuły JSON-a
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
+date_default_timezone_set('Europe/Warsaw');
 
 // Logowanie błędów zamiast wyświetlania
 set_error_handler(function ($errno, $errstr, $errfile, $errline) {
