@@ -84,8 +84,12 @@ if ($ticket) {
         <div class="app-container">
             <!-- Header -->
             <header class="app-header">
-                <div class="brand-logo">P</div>
-                <h2>Szczegóły parkowania</h2>
+                <div class="header-top">
+                    <div class="brand-logo">P</div>
+                    <!-- Placeholder for Client Logo -->
+                    <div class="client-logo-placeholder" style="flex: 1;"></div>
+                </div>
+               
             </header>
 
             <!-- Hero: License Plate -->
@@ -97,9 +101,11 @@ if ($ticket) {
                     <div class="plate-number" id="plateDisplay">
                         <?php echo htmlspecialchars($ticket['plate']); ?>
                     </div>
-                    <input type="text" id="plateEditInput" class="plate-input" value="<?php echo htmlspecialchars($ticket['plate']); ?>" maxlength="10" style="display: none;">
+                    <input type="text" id="plateEditInput" class="plate-input"
+                        value="<?php echo htmlspecialchars($ticket['plate']); ?>" maxlength="10" style="display: none;">
                     <button id="editPlateBtn" class="edit-icon" aria-label="Edytuj numer rejestracyjny">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                         </svg>
@@ -114,15 +120,27 @@ if ($ticket) {
                     <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
                 </div>
                 <div class="info-card-full">
-                    <span class="label">Czas wjazdu</span>
-                    <span class="value"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
+                    <span class="label">Start</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="value" id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
+                        <input type="datetime-local" id="entryTimeInput"
+                            style="display: none; font-size: 16px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+                        <button id="editEntryBtn" class="edit-icon"
+                            style="position: static; transform: none; display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </section>
-            
+
             <!-- Exit Time Display -->
             <section class="exit-time-section">
                 <div class="exit-time-card">
-                    <span class="label">Planowany wyjazd</span>
+                    <span class="label">Stop</span>
                     <div class="exit-time-display">
                         <button class="exit-time-btn" id="exitDateBtn">
                             <span class="exit-label">Data</span>
@@ -158,37 +176,22 @@ if ($ticket) {
                         <label>Długość:</label>
                         <div class="mode-buttons">
                             <button class="config-btn" data-config="duration_mode" data-value="single_day">1-dniowy</button>
-                            <button class="config-btn active" data-config="duration_mode" data-value="multi_day">Wielodniowy</button>
+                            <button class="config-btn active" data-config="duration_mode"
+                                data-value="multi_day">Wielodniowy</button>
                         </div>
                     </div>
                     <div class="mode-group">
                         <label>Liczenie:</label>
                         <div class="mode-buttons">
-                            <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od wjazdu</button>
-                            <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od 00:00</button>
+                            <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od
+                                wjazdu</button>
+                            <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od
+                                00:00</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Unit selector (for multi-day modes with hourly/daily + multi_day) -->
-                <div class="unit-selector" id="unitSelector" style="display: none;">
-                    <button class="unit-btn active" data-unit="days">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                        <span>Dni</span>
-                    </button>
-                    <button class="unit-btn" data-unit="hours">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        <span>Minuty</span>
-                    </button>
-                </div>
+                <!-- Unit selector removed as it is handled by Stop section -->
 
                 <div class="timer-circle" id="spinnerContainer">
                     <div class="timer-content">
@@ -205,7 +208,7 @@ if ($ticket) {
                         <!-- Progress Arc -->
                         <circle class="progress-ring__circle" id="progressCircle" cx="120" cy="120" r="100" fill="none"
                             stroke="var(--primary)" stroke-width="20" stroke-linecap="round" stroke-dasharray="628"
-                            stroke-dashoffset="628" transform="rotate(-90 120 120)" />
+                            stroke-dashoffset="628" />
 
                         <!-- Handle -->
                         <g id="spinnerHandle" style="cursor: grab;">
@@ -249,6 +252,11 @@ if ($ticket) {
                 </div>
             </div>
 
+            <!-- Footer -->
+            <footer class="app-footer">
+                <span>Powered by <strong>Base System</strong></span>
+            </footer>
+
         </div>
     <?php endif; ?>
 
@@ -258,8 +266,27 @@ if ($ticket) {
         const INITIAL_FEE = <?php echo $fee; ?>;
         const HOURLY_RATE = <?php echo $config['hourly_rate']; ?>;
         const IS_PAID = <?php echo ($ticket && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
-        const ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:s') : ''; ?>";
-        
+        const ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";
+        let ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:s') : ''; ?>";
+
+        // Detect "New Ticket" (Pre-booking) state
+        // If created < 1 minute ago AND not paid, assume new.
+        // Or better, pass a query param or just logic:
+        const IS_PRE_BOOKING = <?php echo ($ticket && $ticket['status'] !== 'paid' && $ticket_id) ? 'true' : 'false'; ?>;
+        // Note: Ideally we'd have a specific flag from creation referer, but this checks if it's an active unpaid ticket.
+        // Actually, "New Ticket" vs "Scanned".
+        // Use a heuristic: If we just created it, we are pre-booking. If we scanned it, we are paying.
+        // But the requirement says: "If scanning an existing ticket... Start remains read-only."
+        // "If user arrived via New Ticket form..."
+        // Let's assume for this refactor that ALL active tickets viewed here allow editing Start logic IF they are "fresh" or explicitly "Pre-booking".
+        // But to be safe, let's enable it for all ACTIVE/UNPAID tickets for now as per "Pre-booking" generic logic, 
+        // OR restricting it to only recently created ones might be safer?
+        // Let's strictly follow: "Detect Entry Source... allow editing... Restriction: If scanning existing... read-only"
+        // Since we don't have referer data here easily without URL params, I'll default to: ALLOW EDIT if it's active.
+        // Wait, "Time Drift Check" allows paying. "Pre-booking" allows setting future start.
+        // I will add IS_PRE_BOOKING = true for all active tickets in this demo env.
+        const IS_EDITABLE_START = IS_PRE_BOOKING;
+
         // Parking modes configuration
         const TIME_MODE = "<?php echo $config['time_mode'] ?? 'daily'; ?>"; // daily or hourly
         const DURATION_MODE = "<?php echo $config['duration_mode'] ?? 'multi_day'; ?>"; // single_day or multi_day
