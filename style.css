@@ -301,19 +301,7 @@ body {
     transform: scale(0.98);
 }
 
-.timer-circle {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.timer-content {
-    text-align: center;
-    z-index: 2;
-}
+/* Old timer styles removed */
 
 .timer-content .label {
     display: block;
@@ -744,7 +732,18 @@ body {
         inset 0 4px 20px rgba(0, 0, 0, 0.05),
         0 10px 40px rgba(0, 0, 0, 0.1);
     touch-action: none;
-    /* Prevent browser scrolling while dragging */
+    margin: 0 auto;
+    /* Center the circle itself horizontally */
+}
+
+.timer-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 2;
+    pointer-events: none;
 }
 
 .progress-ring {
