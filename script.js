@@ -151,6 +151,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Function to save entry changes and return to normal mode
+    function saveEntryChanges() {
+        // Switch back to exit edit mode
+        editMode = 'exit';
+
+        // Show collapsed entry, hide expanded entry
+        const entryCollapsed = document.getElementById('entryCollapsed');
+        const entryExpanded = document.getElementById('entryExpanded');
+        const exitCollapsed = document.getElementById('exitCollapsed');
+        const exitExpanded = document.getElementById('exitExpanded');
+
+        if (entryCollapsed) entryCollapsed.style.display = 'block';
+        if (entryExpanded) entryExpanded.style.display = 'none';
+        if (exitExpanded) exitExpanded.style.display = 'block';
+        if (exitCollapsed) exitCollapsed.style.display = 'none';
+
+        // Update collapsed entry display with current ENTRY_TIME
+        const entryTimeDisplay = document.getElementById('entryTimeDisplay');
+        if (entryTimeDisplay) {
+            const entryTime = new Date(ENTRY_TIME);
+            const year = entryTime.getFullYear();
+            const month = String(entryTime.getMonth() + 1).padStart(2, '0');
+            const day = String(entryTime.getDate()).padStart(2, '0');
+            const hours = String(entryTime.getHours()).padStart(2, '0');
+            const mins = String(entryTime.getMinutes()).padStart(2, '0');
+            entryTimeDisplay.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+        }
+
+        // Reset spinner for exit time
+        totalDegrees = 0;
+        currentUnit = 'days';
+        updateSpinner(0);
+        updateSpinnerLabel();
+
+        // Reactivate exit buttons
+        if (exitDateBtn) exitDateBtn.classList.add('active');
+        if (exitTimeBtn) exitTimeBtn.classList.remove('active');
+
+        // Re-enable spinner for exit editing
+        isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
+        if (isEditable) {
+            spinnerContainer.style.opacity = '1';
+            spinnerContainer.style.pointerEvents = 'auto';
+            spinnerContainer.style.cursor = 'grab';
+        }
+
+        // Restore payment button
+        if (payButton) {
+            payButton.classList.remove('save-mode');
+            const originalText = payButton.getAttribute('data-original-text');
+            if (originalText) {
+                payButton.innerText = originalText;
+            } else {
+                // Fallback - update with current fee
+                updatePayButton();
+            }
+        }
+    }
+
     if (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) {
         if (editEntryBtn) editEntryBtn.style.display = 'flex';
 
@@ -185,6 +244,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 spinnerContainer.style.opacity = '1';
                 spinnerContainer.style.pointerEvents = 'auto';
                 spinnerContainer.style.cursor = 'grab';
+
+                // Change payment button to Save button
+                if (payButton) {
+                    payButton.setAttribute('data-original-text', payButton.innerText);
+                    payButton.innerText = 'Zapisz zmiany';
+                    payButton.disabled = false;
+                    payButton.classList.add('save-mode');
+                }
             });
         }
 
@@ -192,49 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const saveEntryBtn = document.getElementById('saveEntryBtn');
         if (saveEntryBtn) {
             saveEntryBtn.addEventListener('click', () => {
-                // Switch back to exit edit mode
-                editMode = 'exit';
-
-                // Show collapsed entry, hide expanded entry
-                const entryCollapsed = document.getElementById('entryCollapsed');
-                const entryExpanded = document.getElementById('entryExpanded');
-                const exitCollapsed = document.getElementById('exitCollapsed');
-                const exitExpanded = document.getElementById('exitExpanded');
-
-                if (entryCollapsed) entryCollapsed.style.display = 'block';
-                if (entryExpanded) entryExpanded.style.display = 'none';
-                if (exitExpanded) exitExpanded.style.display = 'block';
-                if (exitCollapsed) exitCollapsed.style.display = 'none';
-
-                // Update collapsed entry display with current ENTRY_TIME
-                const entryTimeDisplay = document.getElementById('entryTimeDisplay');
-                if (entryTimeDisplay) {
-                    const entryTime = new Date(ENTRY_TIME);
-                    const year = entryTime.getFullYear();
-                    const month = String(entryTime.getMonth() + 1).padStart(2, '0');
-                    const day = String(entryTime.getDate()).padStart(2, '0');
-                    const hours = String(entryTime.getHours()).padStart(2, '0');
-                    const mins = String(entryTime.getMinutes()).padStart(2, '0');
-                    entryTimeDisplay.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
-                }
-
-                // Reset spinner for exit time
-                totalDegrees = 0;
-                currentUnit = 'days';
-                updateSpinner(0);
-                updateSpinnerLabel();
-
-                // Reactivate exit buttons
-                if (exitDateBtn) exitDateBtn.classList.add('active');
-                if (exitTimeBtn) exitTimeBtn.classList.remove('active');
-
-                // Re-enable spinner for exit editing
-                isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
-                if (isEditable) {
-                    spinnerContainer.style.opacity = '1';
-                    spinnerContainer.style.pointerEvents = 'auto';
-                    spinnerContainer.style.cursor = 'grab';
-                }
+                saveEntryChanges();
             });
         }
 
@@ -836,6 +861,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setLoadingState() {
+        // Don't update if we're in save mode (editing entry time)
+        if (payButton.classList.contains('save-mode')) {
+            return;
+        }
+
         payButton.innerText = 'Obliczanie opłaty...';
         payButton.disabled = true;
     }
@@ -876,6 +906,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePayButton() {
+        // Don't update if we're in save mode (editing entry time)
+        if (payButton.classList.contains('save-mode')) {
+            return;
+        }
+
         if (currentFee > 0) {
             payButton.innerText = `Zapłać ${currentFee.toFixed(2)} zł`;
             payButton.disabled = false;
@@ -887,6 +922,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Obsługa płatności
     payButton.addEventListener('click', async () => {
+        // Check if we're in save mode (editing entry time)
+        if (payButton.classList.contains('save-mode')) {
+            saveEntryChanges();
+            return;
+        }
+
         isUserInteracted = true; // Stop clock updates when paying
         if (clockInterval) clearInterval(clockInterval);
 

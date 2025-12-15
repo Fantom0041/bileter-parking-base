@@ -141,11 +141,7 @@ if ($ticket) {
                 <div class="exit-time-card" style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <span class="label" style="color: var(--success);">Start</span>
-                        <button id="saveEntryBtn" class="edit-icon" style="position: static; transform: none; opacity: 0.7;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                        </button>
+                       
                     </div>
                     <div class="exit-time-display">
                         <button class="exit-time-btn" id="entryDateBtn">
