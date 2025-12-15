@@ -120,16 +120,14 @@ if ($ticket) {
                     <span class="label">Strefa</span>
                     <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
                 </div>
-                <div class="info-card-full">
+                
+                <!-- Collapsed Entry Time (Default) -->
+                <div class="info-card-full" id="entryCollapsed">
                     <span class="label">Start</span>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span class="value" id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
-                        <input type="datetime-local" id="entryTimeInput"
-                            style="display: none; font-size: 16px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
-                        <button id="editEntryBtn" class="edit-icon"
-                            style="position: static; transform: none; display: none;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
+                        <button id="editEntryBtn" class="edit-icon" style="position: static; transform: none; display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
@@ -138,8 +136,41 @@ if ($ticket) {
                 </div>
             </section>
 
-            <!-- Exit Time Display -->
-            <section class="exit-time-section">
+            <!-- Expanded Entry Time (Hidden by default) -->
+            <section class="exit-time-section" id="entryExpanded" style="display: none;">
+                <div class="exit-time-card" style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="label" style="color: var(--success);">Start</span>
+                        <button id="saveEntryBtn" class="edit-icon" style="position: static; transform: none; opacity: 0.7;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="exit-time-display">
+                        <button class="exit-time-btn" id="entryDateBtn">
+                            <span class="exit-label">Data</span>
+                            <span class="exit-value" id="entryDateValue">--.--.----</span>
+                        </button>
+                        <button class="exit-time-btn" id="entryTimeBtn">
+                            <span class="exit-label">Godzina</span>
+                            <span class="exit-value" id="entryTimeValue">--:--</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- Collapsed Exit Time (Hidden by default, shown when editing entry) -->
+            <section class="details-section" id="exitCollapsed" style="display: none;">
+                <div class="info-card-full">
+                    <span class="label">Stop</span>
+                    <span class="value" id="exitTimeDisplayCollapsed">--:--</span>
+                </div>
+            </section>
+
+            <!-- Expanded Exit Time Display (Default) -->
+            <section class="exit-time-section" id="exitExpanded">
                 <div class="exit-time-card">
                     <span class="label">Stop</span>
                     <div class="exit-time-display">
@@ -164,33 +195,7 @@ if ($ticket) {
 
             <!-- Interactive Spinner -->
             <section class="timer-section">
-                <!-- Mode Configuration Panel -->
-                <div class="mode-config-panel">
-                    <div class="mode-group">
-                        <label>Tryb:</label>
-                        <div class="mode-buttons">
-                            <button class="config-btn active" data-config="time_mode" data-value="daily">Dzienny</button>
-                            <button class="config-btn" data-config="time_mode" data-value="hourly">Godzinowy</button>
-                        </div>
-                    </div>
-                    <div class="mode-group">
-                        <label>Długość:</label>
-                        <div class="mode-buttons">
-                            <button class="config-btn" data-config="duration_mode" data-value="single_day">1-dniowy</button>
-                            <button class="config-btn active" data-config="duration_mode"
-                                data-value="multi_day">Wielodniowy</button>
-                        </div>
-                    </div>
-                    <div class="mode-group">
-                        <label>Liczenie:</label>
-                        <div class="mode-buttons">
-                            <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od
-                                wjazdu</button>
-                            <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od
-                                00:00</button>
-                        </div>
-                    </div>
-                </div>
+               
 
                 <!-- Unit selector removed as it is handled by Stop section -->
 
@@ -218,6 +223,34 @@ if ($ticket) {
                     </svg>
                 </div>
             </section>
+
+             <!-- Mode Configuration Panel -->
+                <div class="mode-config-panel">
+                    <div class="mode-group">
+                        <label>Tryb:</label>
+                        <div class="mode-buttons">
+                            <button class="config-btn active" data-config="time_mode" data-value="daily">Dzienny</button>
+                            <button class="config-btn" data-config="time_mode" data-value="hourly">Godzinowy</button>
+                        </div>
+                    </div>
+                    <div class="mode-group">
+                        <label>Długość:</label>
+                        <div class="mode-buttons">
+                            <button class="config-btn" data-config="duration_mode" data-value="single_day">1-dniowy</button>
+                            <button class="config-btn active" data-config="duration_mode"
+                                data-value="multi_day">Wielodniowy</button>
+                        </div>
+                    </div>
+                    <div class="mode-group">
+                        <label>Liczenie:</label>
+                        <div class="mode-buttons">
+                            <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od
+                                wjazdu</button>
+                            <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od
+                                00:00</button>
+                        </div>
+                    </div>
+                </div>
 
             <div class="spacer"></div>
 

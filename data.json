@@ -124,5 +124,10 @@
         "status": "paid",
         "payment_time": "2025-12-12 14:47:46",
         "amount_paid": 40
+    },
+    "57829": {
+        "plate": "KRA111",
+        "entry_time": "2025-12-15 08:45:36",
+        "status": "active"
     }
 }

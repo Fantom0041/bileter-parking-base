@@ -59,9 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUnit = 'days'; // 'days' or 'minutes'
     let selectedDays = 0;
     let selectedMinutes = 0;
-    
+
     // Track calculated exit time for validation
     let currentExitTime = new Date();
+
+    // Edit mode: 'exit' or 'entry'
+    let editMode = 'exit'; // Default to editing exit time
 
     // Elements
     const payButton = document.getElementById('payButton');
@@ -76,6 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const exitTimeBtn = document.getElementById('exitTimeBtn');
     const exitDateValue = document.getElementById('exitDateValue');
     const exitTimeValue = document.getElementById('exitTimeValue');
+
+    // Entry time UI elements
+    const entryDateBtn = document.getElementById('entryDateBtn');
+    const entryTimeBtn = document.getElementById('entryTimeBtn');
+    const entryDateValue = document.getElementById('entryDateValue');
+    const entryTimeValue = document.getElementById('entryTimeValue');
 
     // Current mode configuration (can be changed by user)
     let currentTimeMode = TIME_MODE;
@@ -103,74 +112,154 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDragging = false;
     let lastAngle = 0; // Śledzenie poprzedniego kąta dla wykrywania obrotów
     let totalDegrees = 0;
-    
+
     // Real-time clock state
     let clockInterval = null;
     let isUserInteracted = false;
-    
+
     // --- Phase 3: Pre-booking Entry Time Editing ---
     const editEntryBtn = document.getElementById('editEntryBtn');
-    const entryTimeInput = document.getElementById('entryTimeInput');
-    const entryTimeDisplay = document.getElementById('entryTimeDisplay');
+
+    // Initialize entry time display
+    function updateEntryTimeDisplay(entryTime) {
+        if (!entryDateValue || !entryTimeValue) return;
+
+        const day = String(entryTime.getDate()).padStart(2, '0');
+        const month = String(entryTime.getMonth() + 1).padStart(2, '0');
+        const year = entryTime.getFullYear();
+        const hours = String(entryTime.getHours()).padStart(2, '0');
+        const mins = String(entryTime.getMinutes()).padStart(2, '0');
+
+        entryDateValue.textContent = `${day}.${month}.${year}`;
+        entryTimeValue.textContent = `${hours}:${mins}`;
+    }
+
+    // Initialize entry time display on load
+    if (typeof ENTRY_TIME !== 'undefined' && ENTRY_TIME) {
+        const entryTime = new Date(ENTRY_TIME);
+        updateEntryTimeDisplay(entryTime);
+
+        // Also update collapsed display
+        const entryTimeDisplay = document.getElementById('entryTimeDisplay');
+        if (entryTimeDisplay) {
+            const year = entryTime.getFullYear();
+            const month = String(entryTime.getMonth() + 1).padStart(2, '0');
+            const day = String(entryTime.getDate()).padStart(2, '0');
+            const hours = String(entryTime.getHours()).padStart(2, '0');
+            const mins = String(entryTime.getMinutes()).padStart(2, '0');
+            entryTimeDisplay.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+        }
+    }
 
     if (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) {
         if (editEntryBtn) editEntryBtn.style.display = 'flex';
-        
+
         if (editEntryBtn) {
             editEntryBtn.addEventListener('click', () => {
-                entryTimeDisplay.style.display = 'none';
-                entryTimeInput.style.display = 'block';
-                // Set input value to current ENTRY_TIME formatted for datetime-local
-                // ENTRY_TIME is 'YYYY-MM-DD HH:mm:ss' or similar. 
-                // datetime-local needs 'YYYY-MM-DDTHH:mm'
-                // Use the raw one PHP gave us if possible, or parse ENTRY_TIME
-                if (typeof ENTRY_TIME_RAW !== 'undefined') {
-                    entryTimeInput.value = ENTRY_TIME_RAW;
-                } else {
-                     const et = new Date(ENTRY_TIME);
-                     const year = et.getFullYear();
-                     const month = String(et.getMonth() + 1).padStart(2,'0');
-                     const day = String(et.getDate()).padStart(2,'0');
-                     const hours = String(et.getHours()).padStart(2,'0');
-                     const mins = String(et.getMinutes()).padStart(2,'0');
-                     entryTimeInput.value = `${year}-${month}-${day}T${hours}:${mins}`;
-                }
-                entryTimeInput.focus();
-                editEntryBtn.style.display = 'none';
+                // Switch to entry edit mode
+                editMode = 'entry';
+
+                // Hide collapsed entry, show expanded entry
+                const entryCollapsed = document.getElementById('entryCollapsed');
+                const entryExpanded = document.getElementById('entryExpanded');
+                const exitCollapsed = document.getElementById('exitCollapsed');
+                const exitExpanded = document.getElementById('exitExpanded');
+
+                if (entryCollapsed) entryCollapsed.style.display = 'none';
+                if (entryExpanded) entryExpanded.style.display = 'block';
+                if (exitExpanded) exitExpanded.style.display = 'none';
+                if (exitCollapsed) exitCollapsed.style.display = 'block';
+
+                // Reset spinner to show current entry time
+                totalDegrees = 0;
+                currentUnit = 'days'; // Start with days
+                updateSpinner(0);
+                updateSpinnerLabel();
+
+                // Activate entry date button
+                if (entryDateBtn) entryDateBtn.classList.add('active');
+                if (entryTimeBtn) entryTimeBtn.classList.remove('active');
+
+                // Enable spinner editing
+                isEditable = true;
+                spinnerContainer.style.opacity = '1';
+                spinnerContainer.style.pointerEvents = 'auto';
+                spinnerContainer.style.cursor = 'grab';
             });
         }
-        
-        if (entryTimeInput) {
-            function saveEntryTime() {
-                const newVal = entryTimeInput.value;
-                if (newVal) {
-                    // Update ENTRY_TIME global
-                    // Format: YYYY-MM-DD HH:mm:ss
-                    const d = new Date(newVal);
-                    if (!isNaN(d.getTime())) {
-                        const year = d.getFullYear();
-                        const month = String(d.getMonth() + 1).padStart(2,'0');
-                        const day = String(d.getDate()).padStart(2,'0');
-                        const hours = String(d.getHours()).padStart(2,'0');
-                        const mins = String(d.getMinutes()).padStart(2,'0');
-                        const secs = '00';
-                        ENTRY_TIME = `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
-                        
-                        // Update Display
-                        entryTimeDisplay.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
-                        
-                        // Recalculate everything
-                        initializeUI();
-                    }
+
+        // Save entry button handler
+        const saveEntryBtn = document.getElementById('saveEntryBtn');
+        if (saveEntryBtn) {
+            saveEntryBtn.addEventListener('click', () => {
+                // Switch back to exit edit mode
+                editMode = 'exit';
+
+                // Show collapsed entry, hide expanded entry
+                const entryCollapsed = document.getElementById('entryCollapsed');
+                const entryExpanded = document.getElementById('entryExpanded');
+                const exitCollapsed = document.getElementById('exitCollapsed');
+                const exitExpanded = document.getElementById('exitExpanded');
+
+                if (entryCollapsed) entryCollapsed.style.display = 'block';
+                if (entryExpanded) entryExpanded.style.display = 'none';
+                if (exitExpanded) exitExpanded.style.display = 'block';
+                if (exitCollapsed) exitCollapsed.style.display = 'none';
+
+                // Update collapsed entry display with current ENTRY_TIME
+                const entryTimeDisplay = document.getElementById('entryTimeDisplay');
+                if (entryTimeDisplay) {
+                    const entryTime = new Date(ENTRY_TIME);
+                    const year = entryTime.getFullYear();
+                    const month = String(entryTime.getMonth() + 1).padStart(2, '0');
+                    const day = String(entryTime.getDate()).padStart(2, '0');
+                    const hours = String(entryTime.getHours()).padStart(2, '0');
+                    const mins = String(entryTime.getMinutes()).padStart(2, '0');
+                    entryTimeDisplay.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
                 }
-                entryTimeDisplay.style.display = 'block';
-                entryTimeInput.style.display = 'none';
-                editEntryBtn.style.display = 'flex';
-            }
-            
-            entryTimeInput.addEventListener('blur', saveEntryTime);
-            entryTimeInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') saveEntryTime();
+
+                // Reset spinner for exit time
+                totalDegrees = 0;
+                currentUnit = 'days';
+                updateSpinner(0);
+                updateSpinnerLabel();
+
+                // Reactivate exit buttons
+                if (exitDateBtn) exitDateBtn.classList.add('active');
+                if (exitTimeBtn) exitTimeBtn.classList.remove('active');
+
+                // Re-enable spinner for exit editing
+                isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
+                if (isEditable) {
+                    spinnerContainer.style.opacity = '1';
+                    spinnerContainer.style.pointerEvents = 'auto';
+                    spinnerContainer.style.cursor = 'grab';
+                }
+            });
+        }
+
+        // Entry date/time button handlers
+        if (entryDateBtn && entryTimeBtn) {
+            entryDateBtn.addEventListener('click', () => {
+                if (editMode === 'entry') {
+                    currentUnit = 'days';
+                    entryDateBtn.classList.add('active');
+                    entryTimeBtn.classList.remove('active');
+                    updateSpinnerLabel();
+                    totalDegrees = 0;
+                    updateSpinner(0);
+                }
+            });
+
+            entryTimeBtn.addEventListener('click', () => {
+                if (editMode === 'entry') {
+                    currentUnit = 'minutes';
+                    entryTimeBtn.classList.add('active');
+                    entryDateBtn.classList.remove('active');
+                    updateSpinnerLabel();
+                    totalDegrees = 0;
+                    updateSpinner(0);
+                }
             });
         }
     }
@@ -221,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Reinitialize UI
             initializeUI();
-            
+
             // Reset interaction state on mode change?
             // User might want to keep "current time" tracking if just switching views
             // But if they manually set a time, and switch mode, maybe reset is safer?
@@ -233,10 +322,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startRealTimeClock() {
         if (clockInterval) clearInterval(clockInterval);
-        
+
         // Update immediately
         updateRealTimeClock();
-        
+
         clockInterval = setInterval(() => {
             if (!isUserInteracted) {
                 updateRealTimeClock();
@@ -246,41 +335,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateRealTimeClock() {
         if (isUserInteracted) return;
-        
+
         const now = new Date();
         const entry = new Date(ENTRY_TIME);
-        
+
         // Calculate minutes difference
         const diffMs = now - entry;
         const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
-        
+
         // Convert to degrees based on current mode
         let newDegrees = 0;
-        
+
         if (currentTimeMode === 'daily') {
             // 360 deg = 7 days = 10080 mins
             newDegrees = (diffMinutes / 10080) * 360;
         } else if (currentTimeMode === 'hourly') {
-             if (currentDurationMode === 'single_day') {
-                 // 360 deg = 60 mins
-                 newDegrees = (diffMinutes / 60) * 360;
-             } else {
-                 // Multi-day hourly
-                 if (currentUnit === 'days') {
-                     // 360 deg = 7 days
-                     newDegrees = (diffMinutes / 10080) * 360; // Approximate for days view
-                 } else {
-                     // 360 deg = 60 mins (Minutes view)
-                     // Here we only show minutes part of the total duration?
-                     // Or total duration mapped modulo?
-                     // "Minutes" unit usually adds to the day. 
-                     // Valid logic: just show minutes component of current time?
-                     // Let's keep consistency: map total minutes to rotation
-                     newDegrees = (diffMinutes / 60) * 360;
-                 }
-             }
+            if (currentDurationMode === 'single_day') {
+                // 360 deg = 60 mins
+                newDegrees = (diffMinutes / 60) * 360;
+            } else {
+                // Multi-day hourly
+                if (currentUnit === 'days') {
+                    // 360 deg = 7 days
+                    newDegrees = (diffMinutes / 10080) * 360; // Approximate for days view
+                } else {
+                    // 360 deg = 60 mins (Minutes view)
+                    // Here we only show minutes part of the total duration?
+                    // Or total duration mapped modulo?
+                    // "Minutes" unit usually adds to the day. 
+                    // Valid logic: just show minutes component of current time?
+                    // Let's keep consistency: map total minutes to rotation
+                    newDegrees = (diffMinutes / 60) * 360;
+                }
+            }
         }
-        
+
         totalDegrees = newDegrees;
         updateSpinner(totalDegrees);
     }
@@ -298,21 +387,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Daily Mode: Disable Time selection
         if (currentTimeMode === 'daily') {
-             // Visual indication that Time is locked/not needed
-             if (exitTimeBtn) {
-                 exitTimeBtn.classList.remove('active');
-                 exitTimeBtn.style.opacity = '0.5';
-                 exitTimeBtn.style.pointerEvents = 'none';
-             }
-             if (exitDateBtn) {
-                 exitDateBtn.classList.add('active'); // Force Date active
-             }
+            // Visual indication that Time is locked/not needed
+            if (exitTimeBtn) {
+                exitTimeBtn.classList.remove('active');
+                exitTimeBtn.style.opacity = '0.5';
+                exitTimeBtn.style.pointerEvents = 'none';
+            }
+            if (exitDateBtn) {
+                exitDateBtn.classList.add('active'); // Force Date active
+            }
         } else {
-             // Reset Time button state
-             if (exitTimeBtn) {
-                 exitTimeBtn.style.opacity = '1';
-                 exitTimeBtn.style.pointerEvents = 'auto';
-             }
+            // Reset Time button state
+            if (exitTimeBtn) {
+                exitTimeBtn.style.opacity = '1';
+                exitTimeBtn.style.pointerEvents = 'auto';
+            }
         }
 
         // Hourly + Single Day Mode: Disable Date selection
@@ -322,15 +411,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 exitDateBtn.style.opacity = '0.5';
                 exitDateBtn.style.pointerEvents = 'none';
             }
-             if (exitTimeBtn) {
-                 exitTimeBtn.classList.add('active'); // Force Time active
-             }
+            if (exitTimeBtn) {
+                exitTimeBtn.classList.add('active'); // Force Time active
+            }
         } else if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
-             // Ensure Date button is clickable again if we switched back
-             if (exitDateBtn) {
-                 exitDateBtn.style.opacity = '1';
-                 exitDateBtn.style.pointerEvents = 'auto';
-             }
+            // Ensure Date button is clickable again if we switched back
+            if (exitDateBtn) {
+                exitDateBtn.style.opacity = '1';
+                exitDateBtn.style.pointerEvents = 'auto';
+            }
         }
 
 
@@ -353,10 +442,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate end time for single_day modes
         if (currentDurationMode === 'single_day') {
-           // For single day, we might need a distinct calc function or just rely on updateSpinner(0)
-           // But updateSpinner(0) sets it to NOW or +0min.
-           // For Daily Single Day -> It should default to Today 23:59:59?
-           // Let's rely on updateSpinner handling 0 degrees correctly for the mode.
+            // For single day, we might need a distinct calc function or just rely on updateSpinner(0)
+            // But updateSpinner(0) sets it to NOW or +0min.
+            // For Daily Single Day -> It should default to Today 23:59:59?
+            // Let's rely on updateSpinner handling 0 degrees correctly for the mode.
         } else {
             // Initialize exit time display with current time
             const entryTime = new Date(ENTRY_TIME);
@@ -377,6 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 exitDateBtn.classList.add('active');
                 exitTimeBtn.classList.remove('active');
                 updateSpinnerLabel();
+                totalDegrees = 0;
                 updateSpinner(0);
             }
         });
@@ -387,6 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 exitTimeBtn.classList.add('active');
                 exitDateBtn.classList.remove('active');
                 updateSpinnerLabel();
+                totalDegrees = 0;
                 updateSpinner(0);
             }
         });
@@ -398,15 +489,18 @@ document.addEventListener('DOMContentLoaded', () => {
     */
 
     function updateSpinnerLabel() {
+        // Check if we're editing entry time
+        const isEditingEntry = editMode === 'entry';
+
         if (currentTimeMode === 'daily') {
             if (currentDurationMode === 'single_day') {
-                spinnerLabel.textContent = 'WYJAZD';
+                spinnerLabel.textContent = isEditingEntry ? 'WJAZD' : 'WYJAZD';
             } else {
                 spinnerLabel.textContent = 'DATA';
             }
         } else if (currentTimeMode === 'hourly') {
             if (currentDurationMode === 'single_day') {
-                spinnerLabel.textContent = 'WYJAZD';
+                spinnerLabel.textContent = isEditingEntry ? 'WJAZD' : 'WYJAZD';
             } else {
                 if (currentUnit === 'days') {
                     spinnerLabel.textContent = 'DATA';
@@ -466,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let angle = Math.atan2(dy, dx);
         let degrees = angle * (180 / Math.PI) + 90;
         if (degrees < 0) degrees += 360;
-        
+
         return degrees;
     }
 
@@ -484,7 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isDragging = true;
         isUserInteracted = true; // Stop auto-clock
         if (clockInterval) clearInterval(clockInterval);
-        
+
         spinnerContainer.style.cursor = 'grabbing';
         if (spinnerHandle) spinnerHandle.style.transition = 'none'; // Disable transition for direct tracking
     }
@@ -500,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentAngle === null) return;
 
         let delta = currentAngle - lastAngle;
-        
+
         // Handle Wrap-around
         if (delta > 180) {
             delta -= 360;
@@ -526,8 +620,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Auto-switch Tab UX: Hourly + Multi-day
         // If we were dragging Date (Days unit), switch to Time (Minutes unit) after release
         if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day' && currentUnit === 'days') {
-             // Simulate click on Time button
-             if (exitTimeBtn) exitTimeBtn.click();
+            // Simulate click on Time button based on edit mode
+            if (editMode === 'entry') {
+                if (entryTimeBtn) entryTimeBtn.click();
+            } else {
+                if (exitTimeBtn) exitTimeBtn.click();
+            }
         }
     }
 
@@ -545,37 +643,99 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalMinutes = 0;
         const entryTime = new Date(ENTRY_TIME);
 
-        // 3. Logic based on totalDegrees
-        
+        // 3. Check edit mode - are we editing entry or exit time?
+        if (editMode === 'entry') {
+            // Editing ENTRY time - go backwards in time
+            if (currentUnit === 'days') {
+                // Days selection - go back in time
+                const daysFromAngle = Math.floor((totalDegrees / 360) * 7);
+
+                // Calculate new entry date (going backwards)
+                const newEntryDate = new Date(entryTime.getTime() - daysFromAngle * 24 * 60 * 60 * 1000);
+                const day = String(newEntryDate.getDate()).padStart(2, '0');
+                const month = String(newEntryDate.getMonth() + 1).padStart(2, '0');
+                const year = newEntryDate.getFullYear();
+
+                // Display date in spinner
+                spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
+
+                // Update entry time display
+                updateEntryTimeDisplay(newEntryDate);
+
+                // Update global ENTRY_TIME
+                const hours = String(newEntryDate.getHours()).padStart(2, '0');
+                const mins = String(newEntryDate.getMinutes()).padStart(2, '0');
+                ENTRY_TIME = `${year}-${month}-${day} ${hours}:${mins}:00`;
+            } else {
+                // Minutes selection - go back in time
+                const minutesFromAngle = Math.round((totalDegrees / 360) * 60);
+
+                // Calculate new entry time (going backwards)
+                const newEntryTime = new Date(entryTime.getTime() - minutesFromAngle * 60000);
+                const hours = String(newEntryTime.getHours()).padStart(2, '0');
+                const mins = String(newEntryTime.getMinutes()).padStart(2, '0');
+
+                // Display time in spinner
+                spinnerValue.innerHTML = `${hours}:${mins}`;
+
+                // Update entry time display
+                updateEntryTimeDisplay(newEntryTime);
+
+                // Update global ENTRY_TIME
+                const year = newEntryTime.getFullYear();
+                const month = String(newEntryTime.getMonth() + 1).padStart(2, '0');
+                const day = String(newEntryTime.getDate()).padStart(2, '0');
+                ENTRY_TIME = `${year}-${month}-${day} ${hours}:${mins}:00`;
+            }
+
+            // Recalculate fee based on new entry time
+            const now = new Date();
+            const newEntry = new Date(ENTRY_TIME);
+            const diffMs = now - newEntry;
+            totalMinutes = Math.max(0, Math.floor(diffMs / 60000));
+            addedMinutes = totalMinutes;
+
+            // Debounce fee calculation
+            if (debounceTimer) clearTimeout(debounceTimer);
+            setLoadingState();
+            debounceTimer = setTimeout(() => {
+                fetchCalculatedFee(addedMinutes);
+            }, 1000);
+
+            return; // Exit early for entry mode
+        }
+
+        // 3. Logic based on totalDegrees for EXIT time editing
+
         // 3.2: daily / multi_day - scanning adds days
         if (currentTimeMode === 'daily') {
-             // 360 deg = 7 days (as before) or just 1 day per 51 deg?
-             // Let's keep density: 360 deg = 7 days
-             const daysFromAngle = Math.floor((totalDegrees / 360) * 7);
-             selectedDays = daysFromAngle;
+            // 360 deg = 7 days (as before) or just 1 day per 51 deg?
+            // Let's keep density: 360 deg = 7 days
+            const daysFromAngle = Math.floor((totalDegrees / 360) * 7);
+            selectedDays = daysFromAngle;
 
-             // Oblicz datę wyjazdu
-             const exitDate = new Date(entryTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
-             
-             // Force 23:59:59
-             exitDate.setHours(23, 59, 59, 999);
+            // Oblicz datę wyjazdu
+            const exitDate = new Date(entryTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
 
-             const day = String(exitDate.getDate()).padStart(2, '0');
-             const month = String(exitDate.getMonth() + 1).padStart(2, '0');
-             const year = exitDate.getFullYear();
+            // Force 23:59:59
+            exitDate.setHours(23, 59, 59, 999);
 
-             // Wyświetl pełną datę
-             spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
+            const day = String(exitDate.getDate()).padStart(2, '0');
+            const month = String(exitDate.getMonth() + 1).padStart(2, '0');
+            const year = exitDate.getFullYear();
 
-             // Update exit time display
-             updateExitTimeDisplay(exitDate);
+            // Wyświetl pełną datę
+            spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
 
-             // Calculate duration from entry to this EOD
-             const diffMs = exitDate - entryTime;
-             totalMinutes = Math.floor(diffMs / 60000);
-             if (totalMinutes < 0) totalMinutes = 0;
+            // Update exit time display
+            updateExitTimeDisplay(exitDate);
 
-             addedMinutes = totalMinutes;
+            // Calculate duration from entry to this EOD
+            const diffMs = exitDate - entryTime;
+            totalMinutes = Math.floor(diffMs / 60000);
+            if (totalMinutes < 0) totalMinutes = 0;
+
+            addedMinutes = totalMinutes;
         }
         // 3.3: hourly / single_day
         else if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
@@ -585,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Oblicz czas wyjazdu
             const exitTime = new Date(entryTime.getTime() + selectedMinutes * 60000);
-            
+
             const hours = String(exitTime.getHours()).padStart(2, '0');
             const mins = String(exitTime.getMinutes()).padStart(2, '0');
 
@@ -667,6 +827,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         exitDateValue.textContent = `${day}.${month}.${year}`;
         exitTimeValue.textContent = `${hours}:${mins}`;
+
+        // Also update collapsed display
+        const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
+        if (exitTimeDisplayCollapsed) {
+            exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+        }
     }
 
     function setLoadingState() {
@@ -732,20 +898,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // Actually, if I am leaving "Now", and milliseconds passed, strict check might fail.
             // Let's assume 1 minute grace. or strict.
             // Requirement: "If Selected Exit Time < Current ... Do not process."
-            
+
             // Allow 60s tolerance?
             if (serverTimeStub.getTime() - currentExitTime.getTime() > 60000) {
-                 alert('Wybrany czas wyjazdu już minął. Aktualizacja do bieżącego czasu.');
-                 
-                 // Reset spinner to "Now" (or minimum)
-                 // Just call initializeUI() which resets to 0?
-                 // Or updateSpinner(0)?
-                 updateSpinner(0);
-                 updateSpinnerLabel();
-                 
-                 // Recalculate fee implicitly via updateSpinner calling debounce
-                 // But pay button click stops here. User must click again after review.
-                 return;
+                alert('Wybrany czas wyjazdu już minął. Aktualizacja do bieżącego czasu.');
+
+                // Reset spinner to "Now" (or minimum)
+                // Just call initializeUI() which resets to 0?
+                // Or updateSpinner(0)?
+                updateSpinner(0);
+                updateSpinnerLabel();
+
+                // Recalculate fee implicitly via updateSpinner calling debounce
+                // But pay button click stops here. User must click again after review.
+                return;
             }
         }
 

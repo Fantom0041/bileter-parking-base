@@ -1,5 +1,5 @@
 :root {
-    --primary: #F57C00;
+    --primary: #F96E2C;
     --primary-active: #E65100;
     --background: #F4F6F9;
     --surface: #FFFFFF;
@@ -468,7 +468,7 @@ body {
     max-width: 480px;
     background: white;
     border-radius: 32px 32px 0 0;
-    padding: 18px 18px 24px;
+    padding: 12px 18px 18px;
     box-shadow: var(--shadow-heavy);
     z-index: 100;
     transition: transform 0.3s ease;
@@ -479,7 +479,7 @@ body {
     height: 4px;
     background: #E0E0E0;
     border-radius: 2px;
-    margin: 0 auto 24px;
+    margin: 0 auto 12px;
 }
 
 .payment-summary {
@@ -799,4 +799,3 @@ body {
     color: var(--primary);
     letter-spacing: 1px;
 }
-
