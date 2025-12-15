@@ -101,18 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Spinner Elements
     const spinnerContainer = document.getElementById('spinnerContainer');
-    const progressCircle = document.getElementById('progressCircle');
-    const spinnerHandle = document.getElementById('spinnerHandle');
-    const spinnerValue = document.getElementById('spinnerValue');
 
-    // Spinner Config
-    const RADIUS = 100;
-    const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-    const CENTER = { x: 120, y: 120 };
-    let isDragging = false;
-    let lastAngle = 0; // Śledzenie poprzedniego kąta dla wykrywania obrotów
-    let totalDegrees = 0;
-
+    // RoundSlider State
+    let currentTurns = 0;
+    let lastSliderValue = 0;
+    
     // Real-time clock state
     let clockInterval = null;
     let isUserInteracted = false;
@@ -172,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Reset spinner to show current entry time
                 totalDegrees = 0;
+                currentTurns = 0; // Reset turns
                 currentUnit = 'days'; // Start with days
                 updateSpinner(0);
                 updateSpinnerLabel();
@@ -182,9 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Enable spinner editing
                 isEditable = true;
-                spinnerContainer.style.opacity = '1';
-                spinnerContainer.style.pointerEvents = 'auto';
-                spinnerContainer.style.cursor = 'grab';
+                setSliderState(true);
             });
         }
 
@@ -230,11 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Re-enable spinner for exit editing
                 isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
-                if (isEditable) {
-                    spinnerContainer.style.opacity = '1';
-                    spinnerContainer.style.pointerEvents = 'auto';
-                    spinnerContainer.style.cursor = 'grab';
-                }
+                setSliderState(isEditable);
             });
         }
 
@@ -376,15 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize UI based on modes
     function initializeUI() {
-        // Show/hide unit selector (Removed)
-        /*
-        if (needsUnitSelector) {
-            unitSelector.style.display = 'flex';
-        } else {
-            unitSelector.style.display = 'none';
-        }
-        */
-
         // Daily Mode: Disable Time selection
         if (currentTimeMode === 'daily') {
             // Visual indication that Time is locked/not needed
@@ -424,15 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // Enable/disable spinner
-        if (!isEditable) {
-            spinnerContainer.style.opacity = '0.5';
-            spinnerContainer.style.pointerEvents = 'none';
-            spinnerContainer.style.cursor = 'not-allowed';
-        } else {
-            spinnerContainer.style.opacity = '1';
-            spinnerContainer.style.pointerEvents = 'auto';
-            spinnerContainer.style.cursor = 'grab';
-        }
+        setSliderState(isEditable);
 
         // Reset spinner position
         // Reset spinner position
@@ -442,10 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate end time for single_day modes
         if (currentDurationMode === 'single_day') {
-            // For single day, we might need a distinct calc function or just rely on updateSpinner(0)
-            // But updateSpinner(0) sets it to NOW or +0min.
-            // For Daily Single Day -> It should default to Today 23:59:59?
-            // Let's rely on updateSpinner handling 0 degrees correctly for the mode.
+             // ...
         } else {
             // Initialize exit time display with current time
             const entryTime = new Date(ENTRY_TIME);
@@ -483,11 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* Unit buttons removed
-    // Unit buttons (days/minutes) for hourly + multi_day mode
-    unitButtons.forEach(btn => { ... });
-    */
-
     function updateSpinnerLabel() {
         // Check if we're editing entry time
         const isEditingEntry = editMode === 'entry';
@@ -511,134 +474,104 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Initialize Spinner
-    if (progressCircle) {
-        progressCircle.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
-        progressCircle.style.strokeDashoffset = CIRCUMFERENCE; // Start empty
-
-        // Make spinner container draggable with visual feedback (only if editable)
-        if (isEditable) {
-            spinnerContainer.style.cursor = 'grab';
-            spinnerContainer.style.userSelect = 'none';
-
-            // Event Listeners for Dragging - consolidated on container
-            spinnerContainer.addEventListener('mousedown', startDrag);
-            spinnerContainer.addEventListener('touchstart', startDrag, { passive: false });
-
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('touchmove', drag, { passive: false });
-
-            document.addEventListener('mouseup', endDrag);
-            document.addEventListener('touchend', endDrag);
-        }
-
-        // Initialize UI
-        initializeUI();
-    }
-
-    function getAngle(e) {
-        let clientX, clientY;
-        if (e.type.startsWith('touch')) {
-            if (e.touches && e.touches.length > 0) {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                return null;
+    function initializeRoundSlider() {
+         $("#slider").roundSlider({
+            radius: 100,
+            width: 20,
+            handleSize: "+8",
+            sliderType: "min-range",
+            value: 0,
+            max: 360,
+            startAngle: 90,
+            svgMode: true,
+            borderWidth: 0,
+            pathColor: "#E0E0E0",
+            pathColor: "#E0E0E0",
+            rangeColor: "var(--primary)",
+            tooltipColor: "inherit",
+            showTooltip: false,
+            
+            drag: function(e) {
+                handleSliderChange(e.value);
+            },
+            change: function(e) {
+                handleSliderChange(e.value);
+            },
+            start: function() {
+                isUserInteracted = true;
+                if (clockInterval) clearInterval(clockInterval);
+            },
+            stop: function() {
+               isDragging = false;
+               // Auto-switch logic (extracted from previous endDrag)
+               if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day' && currentUnit === 'days') {
+                    if (editMode === 'entry') {
+                        if (entryTimeBtn) entryTimeBtn.click();
+                    } else {
+                        if (exitTimeBtn) exitTimeBtn.click();
+                    }
+               }
             }
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
-
-        const rect = spinnerContainer.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-
-        const dx = clientX - centerX;
-        const dy = clientY - centerY;
-
-        let angle = Math.atan2(dy, dx);
-        let degrees = angle * (180 / Math.PI) + 90;
-        if (degrees < 0) degrees += 360;
-
-        return degrees;
+        });
     }
 
-    function startDrag(e) {
-        // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony
+    function handleSliderChange(newValue) {
+         // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony
         if (typeof IS_PAID !== 'undefined' && IS_PAID) return;
 
-        e.preventDefault();
-        e.stopPropagation();
-
-        const degrees = getAngle(e);
-        if (degrees === null) return;
-
-        lastAngle = degrees;
-        isDragging = true;
-        isUserInteracted = true; // Stop auto-clock
-        if (clockInterval) clearInterval(clockInterval);
-
-        spinnerContainer.style.cursor = 'grabbing';
-        if (spinnerHandle) spinnerHandle.style.transition = 'none'; // Disable transition for direct tracking
+         let diff = newValue - lastSliderValue;
+         // Detect wrap around
+         if (diff < -180) {
+             currentTurns++;
+         } else if (diff > 180) {
+             currentTurns--;
+         }
+         lastSliderValue = newValue;
+         
+         // Total degrees cumulative
+         let total = currentTurns * 360 + newValue;
+         if (total < 0) total = 0;
+         
+         totalDegrees = total;
+         updateSpinner(total, true);
+    }
+    
+    // UI Helpers for RoundSlider
+    function setSliderState(enabled) {
+        const slider = $("#slider").data("roundSlider");
+        if (slider) {
+            slider.option("readOnly", !enabled);
+            // Visual opacity handled by container class or style
+             spinnerContainer.style.opacity = enabled ? '1' : '0.5';
+             spinnerContainer.style.cursor = enabled ? 'default' : 'not-allowed'; // Slider handles cursor
+        }
     }
 
-    function drag(e) {
-        if (!isDragging) return;
+    // Call init
+    $(document).ready(function() {
+        initializeRoundSlider();
+        initializeUI();
+    });
 
-        if (e.cancelable) {
-            e.preventDefault();
-        }
-
-        const currentAngle = getAngle(e);
-        if (currentAngle === null) return;
-
-        let delta = currentAngle - lastAngle;
-
-        // Handle Wrap-around
-        if (delta > 180) {
-            delta -= 360;
-        } else if (delta < -180) {
-            delta += 360;
-        }
-
-        totalDegrees += delta;
-        // if (totalDegrees < 0) totalDegrees = 0; // Optional: prevent negative time
-        if (totalDegrees < 0) totalDegrees = 0;
-
-        lastAngle = currentAngle;
-        updateSpinner(totalDegrees); // Use totalDegrees to keep handle in sync with value
-    }
-
-    function endDrag() {
-        isDragging = false;
-        if (spinnerContainer) {
-            spinnerContainer.style.cursor = 'grab';
-        }
-        if (spinnerHandle) spinnerHandle.style.transition = 'transform 0.1s'; // Re-enable transition
-
-        // Auto-switch Tab UX: Hourly + Multi-day
-        // If we were dragging Date (Days unit), switch to Time (Minutes unit) after release
-        if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day' && currentUnit === 'days') {
-            // Simulate click on Time button based on edit mode
-            if (editMode === 'entry') {
-                if (entryTimeBtn) entryTimeBtn.click();
-            } else {
-                if (exitTimeBtn) exitTimeBtn.click();
+    // Removed getAngle, startDrag, drag, endDrag and replaced updateSpinner
+    function updateSpinner(visualDegrees, isFromAuthoredInteraction = false) {
+        // If programmatic update (e.g. clock), sync the slider widget
+        if (!isFromAuthoredInteraction) {
+            const slider = $("#slider").data("roundSlider");
+            if (slider) {
+                // Determine turns and local value
+                // integer part of degrees / 360
+                // We need to map visualDegrees (which might be huge) back to 0-360 + turns
+                const val = visualDegrees % 360;
+                const turns = Math.floor(visualDegrees / 360);
+                
+                // Avoid firing change/drag events
+                currentTurns = turns;
+                lastSliderValue = val;
+                
+                slider.setValue(val); 
             }
         }
-    }
-
-    function updateSpinner(visualDegrees) {
-        // 1. Update Handle Position
-        const radians = (visualDegrees - 90) * (Math.PI / 180);
-        const x = CENTER.x + RADIUS * Math.cos(radians);
-        const y = CENTER.y + RADIUS * Math.sin(radians);
-        spinnerHandle.setAttribute('transform', `translate(${x - 120}, ${y - 20})`);
-
-        // 2. Update Progress Arc
-        const offset = CIRCUMFERENCE - (visualDegrees / 360) * CIRCUMFERENCE;
-        progressCircle.style.strokeDashoffset = offset;
 
         let totalMinutes = 0;
         const entryTime = new Date(ENTRY_TIME);

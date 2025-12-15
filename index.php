@@ -66,6 +66,7 @@ if ($ticket) {
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap"
         rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.css" rel="stylesheet" />
 </head>
 
 <body>
@@ -120,14 +121,16 @@ if ($ticket) {
                     <span class="label">Strefa</span>
                     <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
                 </div>
-                
+
                 <!-- Collapsed Entry Time (Default) -->
                 <div class="info-card-full" id="entryCollapsed">
                     <span class="label">Start</span>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span class="value" id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
-                        <button id="editEntryBtn" class="edit-icon" style="position: static; transform: none; display: none;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <button id="editEntryBtn" class="edit-icon"
+                            style="position: static; transform: none; display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
@@ -138,11 +141,14 @@ if ($ticket) {
 
             <!-- Expanded Entry Time (Hidden by default) -->
             <section class="exit-time-section" id="entryExpanded" style="display: none;">
-                <div class="exit-time-card" style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
+                <div class="exit-time-card"
+                    style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <span class="label" style="color: var(--success);">Start</span>
-                        <button id="saveEntryBtn" class="edit-icon" style="position: static; transform: none; opacity: 0.7;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <button id="saveEntryBtn" class="edit-icon"
+                            style="position: static; transform: none; opacity: 0.7;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
                         </button>
@@ -195,62 +201,44 @@ if ($ticket) {
 
             <!-- Interactive Spinner -->
             <section class="timer-section">
-               
-
                 <!-- Unit selector removed as it is handled by Stop section -->
-
                 <div class="timer-circle" id="spinnerContainer">
-                    <div class="timer-content">
+                    <div id="slider"></div>
+
+                    <div class="timer-content" style="pointer-events: none;">
                         <span class="label" id="spinnerLabel">WYJAZD</span>
                         <span class="value" id="spinnerValue">00:00<small>/h</small></span>
                     </div>
-
-                    <!-- SVG Spinner -->
-                    <svg class="progress-ring" width="240" height="240" viewBox="0 0 240 240">
-                        <!-- Track -->
-                        <circle class="progress-ring__track" cx="120" cy="120" r="100" fill="none" stroke="#E0E0E0"
-                            stroke-width="20" />
-
-                        <!-- Progress Arc -->
-                        <circle class="progress-ring__circle" id="progressCircle" cx="120" cy="120" r="100" fill="none"
-                            stroke="var(--primary)" stroke-width="20" stroke-linecap="round" stroke-dasharray="628"
-                            stroke-dashoffset="628" />
-
-                        <!-- Handle -->
-                        <g id="spinnerHandle" style="cursor: grab;">
-                            <circle cx="120" cy="20" r="12" fill="var(--primary)" stroke="white" stroke-width="4" />
-                        </g>
-                    </svg>
                 </div>
             </section>
 
-             <!-- Mode Configuration Panel -->
-                <div class="mode-config-panel">
-                    <div class="mode-group">
-                        <label>Tryb:</label>
-                        <div class="mode-buttons">
-                            <button class="config-btn active" data-config="time_mode" data-value="daily">Dzienny</button>
-                            <button class="config-btn" data-config="time_mode" data-value="hourly">Godzinowy</button>
-                        </div>
-                    </div>
-                    <div class="mode-group">
-                        <label>Długość:</label>
-                        <div class="mode-buttons">
-                            <button class="config-btn" data-config="duration_mode" data-value="single_day">1-dniowy</button>
-                            <button class="config-btn active" data-config="duration_mode"
-                                data-value="multi_day">Wielodniowy</button>
-                        </div>
-                    </div>
-                    <div class="mode-group">
-                        <label>Liczenie:</label>
-                        <div class="mode-buttons">
-                            <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od
-                                wjazdu</button>
-                            <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od
-                                00:00</button>
-                        </div>
+            <!-- Mode Configuration Panel -->
+            <div class="mode-config-panel">
+                <div class="mode-group">
+                    <label>Tryb:</label>
+                    <div class="mode-buttons">
+                        <button class="config-btn active" data-config="time_mode" data-value="daily">Dzienny</button>
+                        <button class="config-btn" data-config="time_mode" data-value="hourly">Godzinowy</button>
                     </div>
                 </div>
+                <div class="mode-group">
+                    <label>Długość:</label>
+                    <div class="mode-buttons">
+                        <button class="config-btn" data-config="duration_mode" data-value="single_day">1-dniowy</button>
+                        <button class="config-btn active" data-config="duration_mode"
+                            data-value="multi_day">Wielodniowy</button>
+                    </div>
+                </div>
+                <div class="mode-group">
+                    <label>Liczenie:</label>
+                    <div class="mode-buttons">
+                        <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od
+                            wjazdu</button>
+                        <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od
+                            00:00</button>
+                    </div>
+                </div>
+            </div>
 
             <div class="spacer"></div>
 
@@ -326,6 +314,8 @@ if ($ticket) {
         const DURATION_MODE = "<?php echo $config['duration_mode'] ?? 'multi_day'; ?>"; // single_day or multi_day
         const DAY_COUNTING = "<?php echo $config['day_counting'] ?? 'from_entry'; ?>"; // from_entry or from_midnight
     </script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>
     <script src="script.js"></script>
 </body>
 

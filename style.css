@@ -311,8 +311,14 @@ body {
 }
 
 .timer-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     text-align: center;
     z-index: 2;
+    pointer-events: none;
+    /* Ensure clicks go through to the slider handles if needed, though handle is usually on the ring */
 }
 
 .timer-content .label {
