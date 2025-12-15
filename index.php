@@ -140,7 +140,7 @@ if ($ticket) {
       <!-- Expanded Entry Time (Hidden by default) -->
       <section class="exit-time-section" id="entryExpanded" style="display: none;">
         <div class="exit-time-card" style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
             <span class="label" style="color: var(--success);">Start</span>
           </div>
           <div class="exit-time-display">

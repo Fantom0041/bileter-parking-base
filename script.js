@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const exitCollapsed = document.getElementById('exitCollapsed');
         const exitExpanded = document.getElementById('exitExpanded');
 
-        if (entryCollapsed) entryCollapsed.style.display = 'block';
+        if (entryCollapsed) entryCollapsed.style.display = 'flex';
         if (entryExpanded) entryExpanded.style.display = 'none';
         if (exitExpanded) exitExpanded.style.display = 'block';
         if (exitCollapsed) exitCollapsed.style.display = 'none';
