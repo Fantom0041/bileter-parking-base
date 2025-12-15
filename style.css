@@ -90,7 +90,6 @@ body {
 /* Hero: License Plate */
 .plate-section {
     display: flex;
-    justify-content: center;
     margin-bottom: 10px;
 }
 
@@ -100,7 +99,7 @@ body {
     border: 1px solid #E0E0E0;
     display: flex;
     height: 64px;
-    width: 260px;
+    width: 100%;
     box-shadow: var(--shadow-soft);
     overflow: hidden;
     position: relative;

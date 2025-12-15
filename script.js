@@ -191,18 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Re-enable spinner for exit editing
         isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
         setSliderState(isEditable);
-
-        // Restore payment button
-        if (payButton) {
-            payButton.classList.remove('save-mode');
-            const originalText = payButton.getAttribute('data-original-text');
-            if (originalText) {
-                payButton.innerText = originalText;
-            } else {
-                // Fallback - update with current fee
-                updatePayButton();
-            }
-        }
     }
 
     if (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) {
@@ -241,21 +229,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Enable spinner editing
                 isEditable = true;
                 setSliderState(true);
-
-                // Change payment button to Save button
-                if (payButton) {
-                    payButton.setAttribute('data-original-text', payButton.innerText);
-                    payButton.innerText = 'Zapisz zmiany';
-                    payButton.disabled = false;
-                    payButton.classList.add('save-mode');
-                }
             });
         }
 
-        // Save entry button handler
-        const saveEntryBtn = document.getElementById('saveEntryBtn');
-        if (saveEntryBtn) {
-            saveEntryBtn.addEventListener('click', () => {
+        // Edit exit button handler (in collapsed Stop section when editing entry)
+        const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
+        if (editExitBtnCollapsed) {
+            editExitBtnCollapsed.addEventListener('click', () => {
+                // Save entry changes and return to normal mode
                 saveEntryChanges();
             });
         }
@@ -509,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initializeRoundSlider() {
-         $("#slider").roundSlider({
+        $("#slider").roundSlider({
             radius: 100,
             width: 20,
             handleSize: "+8",
@@ -523,61 +504,61 @@ document.addEventListener('DOMContentLoaded', () => {
             rangeColor: "var(--primary)",
             tooltipColor: "inherit",
             showTooltip: false,
-            
-            drag: function(e) {
+
+            drag: function (e) {
                 handleSliderChange(e.value);
             },
-            change: function(e) {
+            change: function (e) {
                 handleSliderChange(e.value);
             },
-            start: function() {
+            start: function () {
                 isUserInteracted = true;
                 if (clockInterval) clearInterval(clockInterval);
             },
-            stop: function() {
-               // Auto-switch logic
-               if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day' && currentUnit === 'days') {
+            stop: function () {
+                // Auto-switch logic
+                if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day' && currentUnit === 'days') {
                     if (editMode === 'entry') {
                         if (entryTimeBtn) entryTimeBtn.click();
                     } else {
                         if (exitTimeBtn) exitTimeBtn.click();
                     }
-               }
+                }
             }
         });
     }
 
     function handleSliderChange(newValue) {
-         // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony
+        // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony
         if (typeof IS_PAID !== 'undefined' && IS_PAID) return;
 
-         let diff = newValue - lastSliderValue;
-         // Detect wrap around
-         if (diff < -180) {
-             currentTurns++;
-         } else if (diff > 180) {
-             currentTurns--;
-         }
-         lastSliderValue = newValue;
-         
-         // Total degrees cumulative
-         let total = currentTurns * 360 + newValue;
-         if (total < 0) total = 0;
-         
-         totalDegrees = total;
-         updateSpinner(total, true);
+        let diff = newValue - lastSliderValue;
+        // Detect wrap around
+        if (diff < -180) {
+            currentTurns++;
+        } else if (diff > 180) {
+            currentTurns--;
+        }
+        lastSliderValue = newValue;
+
+        // Total degrees cumulative
+        let total = currentTurns * 360 + newValue;
+        if (total < 0) total = 0;
+
+        totalDegrees = total;
+        updateSpinner(total, true);
     }
-    
+
     // UI Helpers for RoundSlider
     function setSliderState(enabled) {
         // Fallback check if slider exists before calling methods
         if (!$("#slider").data("roundSlider")) return;
-        
+
         const slider = $("#slider").data("roundSlider");
         if (slider) {
             slider.option("readOnly", !enabled);
-             spinnerContainer.style.opacity = enabled ? '1' : '0.5';
-             spinnerContainer.style.cursor = enabled ? 'default' : 'not-allowed'; // Slider handles cursor
+            spinnerContainer.style.opacity = enabled ? '1' : '0.5';
+            spinnerContainer.style.cursor = enabled ? 'default' : 'not-allowed'; // Slider handles cursor
         }
     }
 
@@ -591,12 +572,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // We need to map visualDegrees (which might be huge) back to 0-360 + turns
                 const val = visualDegrees % 360;
                 const turns = Math.floor(visualDegrees / 360);
-                
+
                 // Avoid firing change/drag events
                 currentTurns = turns;
                 lastSliderValue = val;
-                
-                slider.setValue(val); 
+
+                slider.setValue(val);
             }
         }
 
@@ -610,7 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // If editingBaseEntryTime is null (e.g. programmatic update?), use entryTime but this might loop if totalDegrees > 0 and we are dragging?
             // Actually, handleSliderChange calls this with isFromAuthoredInteraction=true.
             // When authored interaction happens, we SHOULD have editingBaseEntryTime set by start/click.
-            
+
             const baseTime = editingBaseEntryTime || entryTime;
 
             // Editing ENTRY time - go forward in time

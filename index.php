@@ -125,15 +125,15 @@ if ($ticket) {
         <!-- Collapsed Entry Time (Default) -->
         <div class="info-card-full" id="entryCollapsed">
           <span class="label">Start</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="value" id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
+          <span class="value" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
+            <span id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
             <button id="editEntryBtn" class="edit-icon" style="position: static; transform: none; display: none;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
             </button>
-          </div>
+          </span>
         </div>
       </section>
 
@@ -142,7 +142,6 @@ if ($ticket) {
         <div class="exit-time-card" style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <span class="label" style="color: var(--success);">Start</span>
-           
           </div>
           <div class="exit-time-display">
             <button class="exit-time-btn" id="entryDateBtn">
@@ -162,7 +161,15 @@ if ($ticket) {
       <section class="details-section" id="exitCollapsed" style="display: none;">
         <div class="info-card-full">
           <span class="label">Stop</span>
-          <span class="value" id="exitTimeDisplayCollapsed">--:--</span>
+          <span class="value" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
+            <span id="exitTimeDisplayCollapsed">--:--</span>
+            <button id="editExitBtnCollapsed" class="edit-icon" style="position: static; transform: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+          </span>
         </div>
       </section>
 
