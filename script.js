@@ -533,20 +533,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof IS_PAID !== 'undefined' && IS_PAID) return;
 
         let diff = newValue - lastSliderValue;
+        let potentialTurns = currentTurns;
+
         // Detect wrap around
         if (diff < -180) {
-            currentTurns++;
+            potentialTurns++;  // Przejście z 350° do 10° (do przodu przez 0°)
         } else if (diff > 180) {
-            currentTurns--;
+            potentialTurns--;  // Przejście z 10° do 350° (do tyłu przez 0°)
         }
+
+        // Calculate potential total value
+        let potentialTotal = potentialTurns * 360 + newValue;
+
+        // Prevent going below 0 - force slider back to 0 position
+        if (potentialTotal < 0) {
+            // Reset to 0
+            currentTurns = 0;
+            totalDegrees = 0;
+            lastSliderValue = 0;
+
+            // Force slider widget to position 0
+            const slider = $("#slider").data("roundSlider");
+            if (slider) {
+                slider.setValue(0);
+            }
+
+            // Update display to show starting value
+            updateSpinner(0, false);
+            return;
+        }
+
+        // Always update lastSliderValue to prevent accumulation errors
         lastSliderValue = newValue;
 
-        // Total degrees cumulative
-        let total = currentTurns * 360 + newValue;
-        if (total < 0) total = 0;
-
-        totalDegrees = total;
-        updateSpinner(total, true);
+        // Update currentTurns and totalDegrees
+        currentTurns = potentialTurns;
+        totalDegrees = potentialTotal;
+        updateSpinner(totalDegrees, true);
     }
 
     // UI Helpers for RoundSlider
