@@ -116,6 +116,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Phase 3: Pre-booking Entry Time Editing ---
     const editEntryBtn = document.getElementById('editEntryBtn');
 
+    // Helper function to animate section
+    function animateSection(element) {
+        if (!element) return;
+
+        // Remove class if it exists (to retrigger animation)
+        element.classList.remove('animate-in');
+
+        // Force reflow to restart animation
+        void element.offsetWidth;
+
+        // Add animation class
+        element.classList.add('animate-in');
+
+        // Remove class after animation completes
+        setTimeout(() => {
+            element.classList.remove('animate-in');
+        }, 300);
+    }
+
     // Initialize entry time display
     function updateEntryTimeDisplay(entryTime) {
         if (!entryDateValue || !entryTimeValue) return;
@@ -166,6 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (exitExpanded) exitExpanded.style.display = 'block';
         if (exitCollapsed) exitCollapsed.style.display = 'none';
 
+        // Animate sections that are being shown
+        animateSection(entryCollapsed);
+        animateSection(exitExpanded);
+
         // Update collapsed entry display with current ENTRY_TIME
         const entryTimeDisplay = document.getElementById('entryTimeDisplay');
         if (entryTimeDisplay) {
@@ -214,6 +237,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (entryExpanded) entryExpanded.style.display = 'block';
                 if (exitExpanded) exitExpanded.style.display = 'none';
                 if (exitCollapsed) exitCollapsed.style.display = 'block';
+
+                // Animate sections that are being shown
+                animateSection(entryExpanded);
+                animateSection(exitCollapsed);
 
                 // Reset spinner to show current entry time
                 totalDegrees = 0;
