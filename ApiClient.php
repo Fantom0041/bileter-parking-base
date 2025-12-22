@@ -27,16 +27,17 @@ class ApiClient {
         $entityId = (int)$this->config['api']['entity_id'];
 
         // Przygotuj dane rozkazu LOGIN
+        // Koduj LOGIN i PASSWORD algorytmem SHA1 (NOENCODE = 0)
         $request = [
             'METHOD' => 'LOGIN',
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => '', // Ignorowane w LOGIN
-            'LOGIN' => $login,
-            'PIN' => $pin,
-            'PASSWORD' => $password,
+            'LOGIN' => !empty($login) ? sha1($login) : '',
+            'PIN' => $pin, // PIN bez kodowania
+            'PASSWORD' => !empty($password) ? sha1($password) : '',
             'DEVICE_ID' => $deviceId,
             'IP' => $deviceIp,
-            'NOENCODE' => 1, // Nie kodujemy SHA1
+            'NOENCODE' => 0, // Kodujemy SHA1
             'ENTITY_ID' => $entityId
         ];
 
