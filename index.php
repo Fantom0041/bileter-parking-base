@@ -72,7 +72,11 @@ if ($ticket) {
 <body>
   <?php if ($error): ?>
     <div class="error-container">
-      <div class="icon-error" style="background: rgba(106, 27, 154, 0.1); color: var(--primary);">+</div>
+      <!-- Logo -->
+      <div style="margin-bottom: 20px; background: rgba(0, 0, 0, 0.7); padding: 15px 30px; border-radius: 12px; display: inline-block;">
+        <img src="image/rusin-ski_white.svg" alt="Rusin Ski" style="height: 60px; max-width: 200px; object-fit: contain; display: block;">
+      </div>
+      <!-- <div class="icon-error" style="background: rgba(106, 27, 154, 0.1); color: var(--primary);">+</div> -->
       <h1>Rozlicz parkowanie</h1>
       <p>Wpisz numer rejestracyjny, aby rozpocząć nową sesję.</p>
 
@@ -88,8 +92,12 @@ if ($ticket) {
       <header class="app-header">
         <div class="header-top">
           <div class="brand-logo">P</div>
-          <!-- Placeholder for Client Logo -->
-          <div class="client-logo-placeholder" style="flex: 1;"></div>
+          <!-- Client Logo -->
+          <div >
+            <div style="background: rgba(0, 0, 0, 0.7); padding: 8px 20px; border-radius: 8px;">
+              <img src="image/rusin-ski_white.svg" alt="Rusin Ski" style="height: 40px; max-width: 150px; object-fit: contain; display: block;">
+            </div>
+          </div>
         </div>
 
       </header>
