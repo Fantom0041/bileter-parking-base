@@ -541,6 +541,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Enable/disable spinner
         setSliderState(isEditable);
 
+        // Hide spinner completely in daily + single_day + from_entry mode (time is fixed)
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+            if (spinnerContainer) {
+                spinnerContainer.style.display = 'none';
+            }
+        } else {
+            if (spinnerContainer) {
+                spinnerContainer.style.display = ''; // Reset to original CSS value
+            }
+        }
+
         // Reset spinner position
         // For daily + multi_day + from_entry, start with 1 day (360/7 degrees)
         if (currentTimeMode === 'daily' && currentDurationMode === 'multi_day' && currentDayCounting === 'from_entry') {
@@ -553,7 +564,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             totalDegrees = 0;
         }
-        console.log('initializeUI - totalDegrees:', totalDegrees, 'mode:', currentTimeMode, currentDurationMode, currentDayCounting);
         updateSpinner(totalDegrees);
         updateSpinnerLabel();
 
@@ -844,7 +854,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Let's keep density: 360 deg = 7 days
             const daysFromAngle = Math.round((totalDegrees / 360) * 7);
             selectedDays = daysFromAngle;
-            console.log('updateSpinner - daily mode - totalDegrees:', totalDegrees, 'selectedDays:', selectedDays);
 
             // Oblicz datę wyjazdu
             const exitDate = new Date(entryTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
