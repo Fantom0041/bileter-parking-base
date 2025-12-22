@@ -182,12 +182,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (entryCollapsed) entryCollapsed.style.display = 'flex';
         if (entryExpanded) entryExpanded.style.display = 'none';
-        if (exitExpanded) exitExpanded.style.display = 'block';
-        if (exitCollapsed) exitCollapsed.style.display = 'none';
+
+        // Check if we're in special mode: daily + single_day + from_entry
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+            // Show collapsed Stop, hide expanded Stop
+            if (exitCollapsed) exitCollapsed.style.display = 'block';
+            if (exitExpanded) exitExpanded.style.display = 'none';
+
+            // Hide edit button in collapsed view, add margin to maintain alignment
+            const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
+            const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
+            if (editExitBtnCollapsed) {
+                editExitBtnCollapsed.style.display = 'none';
+            }
+            // Add margin-right to compensate for hidden button (20px icon + 24px padding = 44px)
+            if (exitTimeDisplayCollapsed) {
+                exitTimeDisplayCollapsed.style.marginRight = '30px';
+            }
+
+            // Update collapsed exit time display to show end of day
+            const entryTime = new Date(ENTRY_TIME);
+            const endOfDay = new Date(entryTime);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const year = endOfDay.getFullYear();
+            const month = String(endOfDay.getMonth() + 1).padStart(2, '0');
+            const day = String(endOfDay.getDate()).padStart(2, '0');
+            const hours = String(endOfDay.getHours()).padStart(2, '0');
+            const mins = String(endOfDay.getMinutes()).padStart(2, '0');
+
+            if (exitTimeDisplayCollapsed) {
+                exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+            }
+        } else {
+            // Normal mode: show expanded Stop, hide collapsed Stop
+            if (exitExpanded) exitExpanded.style.display = 'block';
+            if (exitCollapsed) exitCollapsed.style.display = 'none';
+        }
 
         // Animate sections that are being shown
         animateSection(entryCollapsed);
-        animateSection(exitExpanded);
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+            animateSection(exitCollapsed);
+        } else {
+            animateSection(exitExpanded);
+        }
 
         // Update collapsed entry display with current ENTRY_TIME
         const entryTimeDisplay = document.getElementById('entryTimeDisplay');
@@ -263,6 +302,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
         if (editExitBtnCollapsed) {
             editExitBtnCollapsed.addEventListener('click', () => {
+                // Save entry changes and return to normal mode
+                saveEntryChanges();
+            });
+        }
+
+        // Close button handler (X button in expanded Start section)
+        const closeEntryExpandedBtn = document.getElementById('closeEntryExpandedBtn');
+        if (closeEntryExpandedBtn) {
+            closeEntryExpandedBtn.addEventListener('click', () => {
                 // Save entry changes and return to normal mode
                 saveEntryChanges();
             });
@@ -407,6 +455,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize UI based on modes
     function initializeUI() {
+        // Get exit sections
+        const exitExpanded = document.getElementById('exitExpanded');
+        const exitCollapsed = document.getElementById('exitCollapsed');
+
+        // Special case: Daily + Single Day + From Entry = Hide expanded Stop, show collapsed (non-editable)
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+            // Hide expanded exit section
+            if (exitExpanded) exitExpanded.style.display = 'none';
+
+            // Show collapsed exit section (non-editable)
+            if (exitCollapsed) {
+                exitCollapsed.style.display = 'block';
+
+                // Hide edit button in collapsed view, add margin to maintain alignment
+                const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
+                const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
+                if (editExitBtnCollapsed) {
+                    editExitBtnCollapsed.style.display = 'none';
+                }
+                // Add margin-right to compensate for hidden button (20px icon + 24px padding = 44px)
+                if (exitTimeDisplayCollapsed) {
+                    exitTimeDisplayCollapsed.style.marginRight = '30px';
+                }
+
+                // Calculate and display end of day time
+                const entryTime = new Date(ENTRY_TIME);
+                const endOfDay = new Date(entryTime);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                const year = endOfDay.getFullYear();
+                const month = String(endOfDay.getMonth() + 1).padStart(2, '0');
+                const day = String(endOfDay.getDate()).padStart(2, '0');
+                const hours = String(endOfDay.getHours()).padStart(2, '0');
+                const mins = String(endOfDay.getMinutes()).padStart(2, '0');
+
+                if (exitTimeDisplayCollapsed) {
+                    exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+                }
+            }
+        } else {
+            // Normal mode: Show expanded exit section, hide collapsed
+            if (exitExpanded) exitExpanded.style.display = 'block';
+            if (exitCollapsed) exitCollapsed.style.display = 'none';
+        }
+
         // Daily Mode: Disable Time selection
         if (currentTimeMode === 'daily') {
             // Visual indication that Time is locked/not needed

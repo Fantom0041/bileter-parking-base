@@ -73,7 +73,7 @@ if ($ticket) {
   <?php if ($error): ?>
     <div class="error-container">
       <div class="icon-error" style="background: rgba(106, 27, 154, 0.1); color: var(--primary);">+</div>
-      <h1>Rozpocznij parkowanie</h1>
+      <h1>Rozlicz parkowanie</h1>
       <p>Wpisz numer rejestracyjny, aby rozpocząć nową sesję.</p>
 
       <form id="newTicketForm" class="new-ticket-form">
@@ -142,6 +142,12 @@ if ($ticket) {
         <div class="exit-time-card" style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span class="label" style="color: var(--success);">Start</span>
+            <button id="closeEntryExpandedBtn" class="edit-icon" style="position: static; transform: none; padding: 12px; margin: -12px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
           </div>
           <div class="exit-time-display">
             <button class="exit-time-btn" id="entryDateBtn">
