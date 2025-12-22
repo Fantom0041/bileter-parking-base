@@ -548,7 +548,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate end time for single_day modes
         if (currentDurationMode === 'single_day') {
-            // For single day, we might need a distinct calc function or just rely on updateSpinner(0)
+            // For daily + single_day + from_entry, calculate fee to end of day
+            if (currentTimeMode === 'daily' && currentDayCounting === 'from_entry') {
+                const entryTime = new Date(ENTRY_TIME);
+                const endOfDay = new Date(entryTime);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                // Calculate duration from entry to end of day
+                const diffMs = endOfDay - entryTime;
+                const totalMinutes = Math.max(0, Math.floor(diffMs / 60000));
+
+                // Set loading state and fetch fee after a short delay to ensure UI is ready
+                setLoadingState();
+                setTimeout(() => {
+                    fetchCalculatedFee(totalMinutes);
+                }, 100);
+            }
         } else {
             // Initialize exit time display with current time
             const entryTime = new Date(ENTRY_TIME);
@@ -556,7 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Start/Restart Clock if not interacted
-        if (!isUserInteracted) {
+        // Don't start clock in daily + single_day + from_entry mode (time is fixed to end of day)
+        if (!isUserInteracted && !(currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry')) {
             startRealTimeClock();
         }
     }
@@ -896,7 +912,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Set loading state immediately (USING SCRIPT.JS LOGIC WITH SAFEGUARD)
-        setLoadingState();
+        // Don't set loading state in daily + single_day + from_entry mode (fee is calculated in initializeUI)
+        if (!(currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry')) {
+            setLoadingState();
+        }
 
         // Set new debounce timer (1000ms)
         debounceTimer = setTimeout(() => {
