@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Add margin-right to compensate for hidden button (20px icon + 24px padding = 44px)
             if (exitTimeDisplayCollapsed) {
-                exitTimeDisplayCollapsed.style.marginRight = '30px';
+                exitTimeDisplayCollapsed.style.marginRight = '20px';
             }
 
             // Update collapsed exit time display to show end of day
@@ -476,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // Add margin-right to compensate for hidden button (20px icon + 24px padding = 44px)
                 if (exitTimeDisplayCollapsed) {
-                    exitTimeDisplayCollapsed.style.marginRight = '30px';
+                    exitTimeDisplayCollapsed.style.marginRight = '20px';
                 }
 
                 // Calculate and display end of day time
