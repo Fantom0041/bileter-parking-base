@@ -27,16 +27,17 @@ class ApiClient {
         $entityId = (int)$this->config['api']['entity_id'];
 
         // Przygotuj dane rozkazu LOGIN
+        // Koduj LOGIN, PIN, PASSWORD algorytmem SHA1 (NOENCODE = 0)
         $request = [
             'METHOD' => 'LOGIN',
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => '', // Ignorowane w LOGIN
-            'LOGIN' => $login,
-            'PIN' => $pin,
-            'PASSWORD' => $password,
+            'LOGIN' => !empty($login) ? sha1($login) : '',
+            'PIN' => !empty($pin) ? sha1($pin) : '',
+            'PASSWORD' => !empty($password) ? sha1($password) : '',
             'DEVICE_ID' => $deviceId,
             'IP' => $deviceIp,
-            'NOENCODE' => 1, // Nie kodujemy SHA1
+            'NOENCODE' => 0, // Kodujemy SHA1
             'ENTITY_ID' => $entityId
         ];
 
@@ -170,40 +171,60 @@ class ApiClient {
     }
 
     /**
-     * Wysłanie żądania do API
+     * Wysłanie żądania do API przez TCP socket
      * @param array $data Dane żądania
      * @return array|false Odpowiedź z API lub false w przypadku błędu
      */
     private function sendRequest($data) {
-        $ch = curl_init($this->apiUrl);
+        // Parsuj URL aby wyciągnąć host i port
+        $urlParts = parse_url($this->apiUrl);
+        $host = $urlParts['host'] ?? 'localhost';
+        $port = $urlParts['port'] ?? 80;
         
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'Accept: application/json'
-        ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
+        $jsonRequest = json_encode($data);
         
-        curl_close($ch);
-
-        if ($response === false || $httpCode !== 200) {
-            error_log("API Error: HTTP $httpCode, $error");
+        // Otwórz socket TCP
+        $socket = @fsockopen($host, $port, $errno, $errstr, 10);
+        
+        if (!$socket) {
+            error_log("API Socket Error: $errstr ($errno)");
             return false;
         }
-
+        
+        // Wyślij żądanie JSON + nowa linia
+        fwrite($socket, $jsonRequest . "\n");
+        
+        // Ustaw timeout na odczyt
+        stream_set_timeout($socket, 10);
+        
+        // Odczytaj odpowiedź
+        $response = '';
+        while (!feof($socket)) {
+            $line = fgets($socket, 4096);
+            if ($line === false) break;
+            $response .= $line;
+            
+            // Jeśli mamy kompletny JSON, przerwij
+            $decoded = json_decode($response, true);
+            if ($decoded !== null) {
+                break;
+            }
+        }
+        
+        fclose($socket);
+        
+        if (empty($response)) {
+            error_log("API Error: Empty response");
+            return false;
+        }
+        
         $decoded = json_decode($response, true);
         
         if ($decoded === null) {
-            error_log("API Error: Invalid JSON response");
+            error_log("API Error: Invalid JSON response: " . $response);
             return false;
         }
-
+        
         return $decoded;
     }
 
