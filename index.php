@@ -133,7 +133,7 @@ if ($ticket) {
         <!-- Collapsed Entry Time (Default) -->
         <div class="info-card-full" id="entryCollapsed" style="position: relative;">
           <span class="label">Start</span>
-          <span class="value" style="padding-right: 20px;">
+          <span class="value" style="padding-right: 30px;">
             <span id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
           </span>
           <button id="editEntryBtn" class="edit-icon" style="display: none;">
