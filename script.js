@@ -542,8 +542,19 @@ document.addEventListener('DOMContentLoaded', () => {
         setSliderState(isEditable);
 
         // Reset spinner position
-        totalDegrees = 0;
-        updateSpinner(0);
+        // For daily + multi_day + from_entry, start with 1 day (360/7 degrees)
+        if (currentTimeMode === 'daily' && currentDurationMode === 'multi_day' && currentDayCounting === 'from_entry') {
+            totalDegrees = 360 / 7; // 1 day
+            // Set visual position of spinner
+            const slider = $("#slider").data("roundSlider");
+            if (slider) {
+                slider.setValue(totalDegrees);
+            }
+        } else {
+            totalDegrees = 0;
+        }
+        console.log('initializeUI - totalDegrees:', totalDegrees, 'mode:', currentTimeMode, currentDurationMode, currentDayCounting);
+        updateSpinner(totalDegrees);
         updateSpinnerLabel();
 
         // Calculate end time for single_day modes
@@ -564,6 +575,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     fetchCalculatedFee(totalMinutes);
                 }, 100);
             }
+        } else if (currentDurationMode === 'multi_day') {
+            // For daily + multi_day + from_entry, initialize with +1 day and same hour
+            if (currentTimeMode === 'daily' && currentDayCounting === 'from_entry') {
+                const entryTime = new Date(ENTRY_TIME);
+                const nextDay = new Date(entryTime.getTime() + 24 * 60 * 60 * 1000); // +1 day
+                updateExitTimeDisplay(nextDay);
+            } else {
+                // Initialize exit time display with current time
+                const entryTime = new Date(ENTRY_TIME);
+                updateExitTimeDisplay(entryTime);
+            }
         } else {
             // Initialize exit time display with current time
             const entryTime = new Date(ENTRY_TIME);
@@ -571,8 +593,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Start/Restart Clock if not interacted
-        // Don't start clock in daily + single_day + from_entry mode (time is fixed to end of day)
-        if (!isUserInteracted && !(currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry')) {
+        // Don't start clock in daily + from_entry modes (time is fixed)
+        const isFixedTimeMode = currentTimeMode === 'daily' && currentDayCounting === 'from_entry';
+        if (!isUserInteracted && !isFixedTimeMode) {
             startRealTimeClock();
         }
     }
@@ -819,14 +842,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentTimeMode === 'daily') {
             // 360 deg = 7 days (as before) or just 1 day per 51 deg?
             // Let's keep density: 360 deg = 7 days
-            const daysFromAngle = Math.floor((totalDegrees / 360) * 7);
+            const daysFromAngle = Math.round((totalDegrees / 360) * 7);
             selectedDays = daysFromAngle;
+            console.log('updateSpinner - daily mode - totalDegrees:', totalDegrees, 'selectedDays:', selectedDays);
 
             // Oblicz datę wyjazdu
             const exitDate = new Date(entryTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
 
-            // Force 23:59:59
-            exitDate.setHours(23, 59, 59, 999);
+            // For multi_day + from_entry: keep the same hour as entry time (24h from entry)
+            // For other modes: force 23:59:59
+            if (currentDurationMode === 'multi_day' && currentDayCounting === 'from_entry') {
+                // Keep the same hour as entry time (already set by adding days * 24h)
+                // No need to change hours
+            } else {
+                // Force 23:59:59 for other modes
+                exitDate.setHours(23, 59, 59, 999);
+            }
 
             const day = String(exitDate.getDate()).padStart(2, '0');
             const month = String(exitDate.getMonth() + 1).padStart(2, '0');
