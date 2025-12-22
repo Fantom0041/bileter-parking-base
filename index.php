@@ -93,10 +93,8 @@ if ($ticket) {
         <div class="header-top">
           <div class="brand-logo">P</div>
           <!-- Client Logo -->
-          <div >
-            <div style="background: rgba(0, 0, 0, 0.7); padding: 8px 20px; border-radius: 8px;">
-              <img src="image/rusin-ski_white.svg" alt="Rusin Ski" style="height: 40px; max-width: 150px; object-fit: contain; display: block;">
-            </div>
+          <div style="display: flex; align-items: center;">
+            <img src="image/rusin-ski_white.svg" alt="Rusin Ski" style="height: 40px; max-width: 150px; object-fit: contain; display: block;">
           </div>
         </div>
 
@@ -258,15 +256,6 @@ if ($ticket) {
 
       <!-- Bottom Sheet: Payment Control -->
       <footer class="payment-sheet" id="paymentSheet">
-        <div class="sheet-handle"></div>
-
-        <!-- Extension Chips (Hidden by default, shown via JS if needed) -->
-        <div class="extension-chips" id="extensionChips" style="display: none;">
-          <button class="chip" data-add="30">+30m</button>
-          <button class="chip" data-add="60">+1h</button>
-          <button class="chip" data-add="120">+2h</button>
-        </div>
-
         <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
           <?php echo $fee > 0 ? 'Zapłać ' . number_format($fee, 2) . ' ' . $config['currency'] : 'Wyjazd bez opłaty'; ?>
         </button>
