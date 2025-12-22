@@ -223,7 +223,10 @@ if ($ticket) {
           </div>
         </div>
       </section>
-
+  <!-- Footer -->
+      <footer class="app-footer">
+        <span>Powered by <strong>Base System</strong></span>
+      </footer>
       <!-- Mode Configuration Panel -->
       <div class="mode-config-panel">
         <div class="mode-group">
@@ -285,10 +288,7 @@ if ($ticket) {
         </div>
       </div>
 
-      <!-- Footer -->
-      <footer class="app-footer">
-        <span>Powered by <strong>Base System</strong></span>
-      </footer>
+    
 
     </div>
   <?php endif; ?>
