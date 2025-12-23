@@ -71,7 +71,7 @@ if ($action === 'create') {
             http_response_code(200); 
             echo json_encode([
                 'success' => false, 
-                'message' => 'Nie znaleziono biletu dla podanego numeru. Upewnij się, że wjechałeś na parking.'
+                'message' => 'Nie znaleziono biletu. Odpowiedź API: ' . json_encode($info)
             ]);
         }
 
