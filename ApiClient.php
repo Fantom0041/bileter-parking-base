@@ -180,16 +180,23 @@ class ApiClient {
      * @param string $barcode Kod kreskowy/numer karty
      * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
      */
+    /**
+     * Pobranie informacji o biletach dla podanego kodu kreskowego
+     * @param string $barcode Kod kreskowy/numer karty
+     * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
+     */
     public function getBarcodeInfo($barcode) {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];
         }
 
+        // Use PARK_TICKET_GET_INFO as BARCODE_INFO is not in docs
         $request = [
-            'METHOD' => 'BARCODE_INFO',
+            'METHOD' => 'PARK_TICKET_GET_INFO',
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => $this->loginId,
-            'BARCODE' => $barcode
+            'BARCODE' => $barcode,
+            'DATE' => date('Y-m-d H:i:s') // Required param, use current time
         ];
 
         $response = $this->sendRequest($request);
@@ -199,10 +206,21 @@ class ApiClient {
         }
 
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
+            // Map PARK_TICKET_GET_INFO response to expected 'tickets' structure
+            // The response has flat fields: FEE, REGISTRATION_NUMBER, TICKET_ID etc.
+            // We wrap it in a single item array to match previous structure
+            $ticketData = [
+                'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode,
+                'VALID_FROM' => $response['VALID_FROM'] ?? null,
+                'VALID_TO' => $response['VALID_TO'] ?? null,
+                'FEE' => $response['FEE'] ?? 0,
+                // Add any other fields needed
+            ];
+            
             return [
                 'success' => true,
-                'tickets' => $response['TICKETS'] ?? [],
-                'lockers' => $response['LOCKERS'] ?? []
+                'tickets' => [$ticketData], // Wrap in array as index.php expects tickets[0]
+                'lockers' => []
             ];
         } else {
             return [
