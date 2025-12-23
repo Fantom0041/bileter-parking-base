@@ -241,6 +241,20 @@ class ApiClient {
                 ];
             }
         } else {
+            // Special handling for Error -3 (Invalid Data).
+            // In this specific API implementation, querying a non-existent plate via PARK_TICKET_GET_INFO
+            // returns Error -3 instead of success with TICKET_EXIST=0.
+            // We treat -3 as "Ticket Not Found" -> New Session.
+            if (($response['STATUS'] ?? -999) == -3) {
+                 return [
+                    'success' => true,
+                    'tickets' => [], 
+                    'lockers' => [],
+                    'is_new' => true,
+                    'defaults' => null // No defaults available from error response
+                ];
+            }
+
             return [
                 'success' => false,
                 'error' => $this->getErrorMessage($response['STATUS'] ?? -999),
