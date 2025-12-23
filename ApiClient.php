@@ -137,6 +137,49 @@ class ApiClient {
      * @param string $barcode Kod kreskowy/numer karty
      * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
      */
+    /**
+     * Pobranie informacji o opłacie parkingowej
+     * @param string $barcode Numer rejestracyjny/kod kreskowy
+     * @param string $date Data rozliczenia (Y-m-d H:i:s)
+     * @return array
+     */
+    public function getParkingFee($barcode, $date) {
+        if (!$this->loginId) {
+            return ['success' => false, 'error' => 'Nie zalogowano'];
+        }
+
+        $request = [
+            'METHOD' => 'PARK_TICKET_GET_INFO',
+            'ORDER_ID' => $this->getNextOrderId(),
+            'LOGIN_ID' => $this->loginId,
+            'BARCODE' => $barcode,
+            'DATE' => $date
+        ];
+
+        $response = $this->sendRequest($request);
+
+        if ($response === false) {
+            return ['success' => false, 'error' => 'Błąd połączenia z API'];
+        }
+
+        if (isset($response['STATUS']) && $response['STATUS'] === 0) {
+            return [
+                'success' => true,
+                'data' => $response // API returns FEE, VALID_FROM, etc directly in root or similar structure
+            ];
+        } else {
+            return [
+                'success' => false,
+                'error' => $this->getErrorMessage($response['STATUS'] ?? -999)
+            ];
+        }
+    }
+
+    /**
+     * Pobranie informacji o biletach dla podanego kodu kreskowego
+     * @param string $barcode Kod kreskowy/numer karty
+     * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
+     */
     public function getBarcodeInfo($barcode) {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];

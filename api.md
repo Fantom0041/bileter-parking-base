@@ -70,64 +70,29 @@ aktywności
 [standardowe pole rozkazu]
  ODPOWIEDŹ PRAWDIŁOWA:
 [standardowe pole odpowiedzi]
-4. Wydanie biletu na podany identyfikator
-METHOD: TICKET_EXECUTE
-[standardowe pole rozkazu]
-TICKET_ID :int64 <identyfikator biletu>
-3
-TICKET_TYPE :int32 <typ biletu>
-AMOUNT :int32 <ilość>
-BARCODE :string <kod kreskowy/numer karty/numer zegarka>
-VALID_FROM :string <ważny od - format: 2000-01-01 00:00:00>
-VALID_TO :string <ważny do - format: 2000-12-31 23:59:50>
- ODPOWIEDŹ PRAWDIŁOWA:
-[standardowe pole odpowiedzi]
-5. Skasowanie biletów z podanego identyfikatora
-METHOD: BARCODE_DELETE
-[standardowe pole rozkazu]
-BARCODE :string <kod kreskowy/numer karty/numer zegarka>
- ODPOWIEDŹ PRAWDIŁOWA:
-[standardowe pole odpowiedzi]
-6. Pobranie informacji o aktywnych biletach dla podanego identyfikatora
-METHOD: BARCODE_INFO
-[standardowe pole rozkazu]
-BARCODE :string <kod kreskowy/numer karty/numer zegarka>
- ODPOWIEDŹ PRAWDIŁOWA:
-[standardowe pole odpowiedzi]
-LOCKERS :table <tablica szafek>
-LOCEKR_ID :int64 <szafka - identyfikator>
-LOCKER_NUMBER :int32 <szafka - numer>
-LOCKER_INDEX :int32 <szafka - indeks wystapienia>
-LOCKER_INFO :string <szafka - info>
-LOCKER_ROOM_ID :int64 <przebieralnia - identyfikator>
-LOCKER_ROOM_NAME :string <przebieralnia - nazwa>
-BARCODE :string <kod kreskowy/numer karty/numer
-zegarka - dla którego szafka jest zajeta w
-podanym okresie>
-VALID_FROM :string <szafka zajeta od - format: 2000-01-01
-00:00:00>
-VALID_TO :string <szafka zajeta do - format: 2000-01-01
-00:00:00>
-TICKETS :table <tablica opisujaca aktywne bilety>
-BARCODE :string <kod kreskowy/numer karty/numer
-zegarka>
-TICKET_ID :int64 <identyfikator biletu>
-TICKET_NAME :string <nazwa biletu>
-TICKET_TYPE :int32 <typ biletu>
-VALID_FROM :string <ważny od - format: 2000-01-01
-00:00:00>
-VALID_TO :string <ważny do - format: 2000-12-31
-23:59:50>
-4
-POINTS :int32 <opcjonalnie - ilosc punktów - dla
-niektórych typów biletów>
-POINTS_FOR_ENTRY :int32 <opcjonalnie - ilosc punktów dla
-pojedyńczego przejścia - dla niektórych
-typów biletów>
-ITEM_ID :int64 <identyfikator pozycji w bazie>
-VALID_PERIODS :table <tablica z nadrzędnymi okresami
-obowiazywania>
-VALID_FROM :string <ważny od - format: 2000-01-01
-00:00:00>
-VALID_TO :string <ważny do - format: 2000-12-31
-23:59:50>
+
+
+
+METHOD: PARK_TICKET_GET_INFO
+	[standardowe pole rozkazu]
+	BARCODE					:string		<wymagany>	<kod kreskowy/numer karty/numer zegarka/numer rejestracyjny>
+	DATE					:string		<wymagany>	<data rozliczenienia>
+
+----------------------------------------------------------------------------------
+  ODPOWIEDZ PRAWDILOWA:
+----------------------------------------------------------------------------------
+	[standardowe pole odpowiedzi]
+	DATE					:string				<data info>
+	REGISTRATION_NUMBER		:string				<numer rejestracyjny samochodu>
+	TICKET_ID				:int64				<identyfikator biletu parkingowego>
+	TICKET_NAME				:string				<nazwa biletu parkingowego>
+	VALID_FROM				:string				<wazny od - format: 2000-01-01 00:00:00>
+	VALID_TO				:string 			<wazny do - format: 2000-12-31 23:59:50>
+													< - w okresie od - do bilet nie nalicza oplaty>
+	FEE						:int64				<aktualna oplata - po odjeciu ewentualnych wczesniejszym oplat>
+	FEE_PAID				:int64				<oplata juz zaplacona>
+    FEE_TYPE				:enum				[typ oplaty parkingowej]
+	FEE_STARTS_TYPE			:enum				[typ naliczania oplaty parkingowej]
+	FEE_MULTI_DAY			:enum				[tak/nie]
+	OBJECT_LIST				:table				<lista obiektow na ktore wpuszcza parking>
+		OBJECT_NAME			:string				<nazwa obiektu>

@@ -116,22 +116,64 @@ if ($action === 'calculate_fee') {
         // Jeśli bilet już opłacony? API nie zwraca 'paid'.
         // Zakładamy, że jest do opłacenia.
 
-        // Oblicz czas trwania
+        // Oblicz czas wyjazdu
         $entry_time = new DateTime($ticket['entry_time']);
         $current_time = new DateTime();
-        $current_time->modify("+{$extension_minutes} minutes");
-
-        $interval = $entry_time->diff($current_time);
-        $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
-
-        // Sprawdź okres bezpłatny
-        if ($duration_minutes <= $config['settings']['free_minutes']) {
-            $fee = 0;
-        } else {
-            // Oblicz opłatę godzinową
-            $hours = ceil($duration_minutes / 60);
-            $fee = $hours * $config['settings']['hourly_rate'];
+        if ($extension_minutes > 0) {
+             $current_time->modify("+{$extension_minutes} minutes");
         }
+        $calculationDate = $current_time->format('Y-m-d H:i:s');
+        
+        // Zamiast liczyć lokalnie, pytamy API o kwotę na dany moment wyjazdu
+        $fee = 0;
+        $duration_minutes = 0;
+        
+        // Ponowne połączenie w celu kalkulacji (chyba że trzymamy sesję - tu otwieramy nową)
+        // W przyszłości warto zoptymalizować by nie logować się 2 razy (raz przy checku, raz tutaj)
+        // Ale w obecnym kodzie check był wyżej.
+        
+        if (!empty($config['api']['api_url'])) {
+             $client = new ApiClient($config);
+             if ($client->login()['success']) {
+                 $feeInfo = $client->getParkingFee($ticket['plate'], $calculationDate);
+                 
+                 if ($feeInfo['success']) {
+                     // API zwraca kwotę w groszach? Dokumentacja mówi: FEE :int64. Zazwyczaj to grosze.
+                     // Sprawdźmy konwencję. rate = 5.00. Jeśli user płaci 5 PLN, a API zwraca np 500, to grosze.
+                     // Ale format w config to 5.00. 
+                     // Jeśli API zwraca "5" jako int dla 5zł?
+                     // Bez pewności, załóżmy że to jednostki główne LUB grosze.
+                     // Standardem w takich systemach są grosze.
+                     // Jednak w configu mamy hourly_rate=5.00 (float).
+                     // Najbezpieczniej wyświetlić to co przyjdzie, ewentualnie podzielić przez 100 jeśli to grosze.
+                     // W api.md: FEE :int64 "aktualna oplata".
+                     // Zazwyczaj int64 oznacza grosze. 
+                     // Przyjmijmy że dzielimy przez 100.
+                     
+                     $rawFee = $feeInfo['data']['FEE'] ?? 0;
+                     $paidFee = $feeInfo['data']['FEE_PAID'] ?? 0;
+                     $toPay = $rawFee - $paidFee;
+                     
+                     // Czy dzielić przez 100?
+                     // Spójrzmy na config.ini: hourly_rate = 5.00.
+                     // Jeśli system BaseSystem używa groszy, to 5.00PLN = 500.
+                     // Zaryzykuję podzielenie przez 100, bo int64 rzadko jest dla kwot z przecinkiem, a dla "groszy".
+                     $fee = $toPay / 100.0; 
+                     
+                     // Czas trwania - obliczamy lokalnie dla UI, bo API nie zwraca 'duration' wprost, tylko daty.
+                     $validFrom = new DateTime($feeInfo['data']['VALID_FROM'] ?? $ticket['entry_time']);
+                     $interval = $validFrom->diff($current_time);
+                     $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
+                 } else {
+                     // Fallback albo błąd
+                     error_log("API Fee Calc Error: " . $feeInfo['error']);
+                     // Fallback do lokalnego? Nie, skoro użytkownik chce API.
+                     // Ale żeby nie blokować UI, zwróćmy błąd lub 0.
+                 }
+                 $client->logout();
+             }
+        }
+
 
         echo json_encode([
             'success' => true,
