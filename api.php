@@ -46,10 +46,8 @@ if ($action === 'create') {
         exit;
     }
     
-    // Sanitize plate: Upper case, remove spaces and non-alphanumeric (just to be safe against API format rules)
-    // Many parking systems store plates as "KRA12345", not "KRA 12345".
-    // Alternatively, send exactly what user typed if specific format needed, but removing spaces is safest 1st try.
-    $plate = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $plate));
+    // Sanitize plate: Upper case, but allow spaces as some systems store plates with spaces (e.g. "KRA 12345")
+    $plate = strtoupper(trim($input['plate'] ?? ''));
 
     try {
         $client = new ApiClient($config);
