@@ -160,14 +160,7 @@ class ApiClient {
             'LOGIN_ID' => $this->loginId,
             'BARCODE' => $barcode,
             'DATE_FROM' => $date, // For fee calculation, check at specific time
-            'DATE_TO' => $date,   // API doc says "from - to". If calculating fee for a moment, likely same or from entry? 
-                                  // Doc says: "Date from (load current date identical to date to) - so if no ticket, returns default."
-                                  // For fee calculation, usually we provide the "Exit Time".
-                                  // Since doc is sparse on "Calculate Fee at X time", and says "FEE: current fee",
-                                  // we likely just query for the status "NOW" (at exit time).
-                                  // Let's pass $date for both as the point of truth.
-            'DEVICE_ID' => (int)$this->config['api']['device_id'],
-            'ENTITY_ID' => (int)$this->config['api']['entity_id']
+            'DATE_TO' => $date    // API doc says "from - to". 
         ];
 
         $response = $this->sendRequest($request);
@@ -221,22 +214,32 @@ class ApiClient {
         }
 
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
-            // Map PARK_TICKET_GET_INFO response to expected 'tickets' structure
-            // The response has flat fields: FEE, REGISTRATION_NUMBER, TICKET_ID etc.
-            // We wrap it in a single item array to match previous structure
-            $ticketData = [
-                'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode,
-                'VALID_FROM' => $response['VALID_FROM'] ?? null,
-                'VALID_TO' => $response['VALID_TO'] ?? null,
-                'FEE' => $response['FEE'] ?? 0,
-                // Add any other fields needed
-            ];
-            
-            return [
-                'success' => true,
-                'tickets' => [$ticketData], // Wrap in array as index.php expects tickets[0]
-                'lockers' => []
-            ];
+            // Check TICKET_EXIST flag
+            $ticketExist = isset($response['TICKET_EXIST']) && $response['TICKET_EXIST'] == 1;
+
+            if ($ticketExist) {
+                // Map PARK_TICKET_GET_INFO response to expected 'tickets' structure
+                $ticketData = [
+                    'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode,
+                    'VALID_FROM' => $response['VALID_FROM'] ?? null,
+                    'VALID_TO' => $response['VALID_TO'] ?? null,
+                    'FEE' => $response['FEE'] ?? 0,
+                    'STATUS' => 'active'
+                ];
+                return [
+                    'success' => true,
+                    'tickets' => [$ticketData], 
+                    'lockers' => $response['LOCKERS'] ?? []
+                ];
+            } else {
+                 return [
+                    'success' => true,
+                    'tickets' => [], // Empty = Not found (so api.php will handle as New)
+                    'lockers' => [],
+                    'is_new' => true, // Flag for api.php to know it's a valid new session capability
+                    'defaults' => $response // Pass defaults just in case
+                ];
+            }
         } else {
             return [
                 'success' => false,
