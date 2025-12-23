@@ -225,7 +225,8 @@ class ApiClient {
         } else {
             return [
                 'success' => false,
-                'error' => $this->getErrorMessage($response['STATUS'] ?? -999)
+                'error' => $this->getErrorMessage($response['STATUS'] ?? -999),
+                'debug_request' => $request
             ];
         }
     }
