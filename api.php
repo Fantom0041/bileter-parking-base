@@ -76,7 +76,7 @@ if ($action === 'create') {
 
     } catch (Exception $e) {
         error_log("Error searching ticket: " . $e->getMessage());
-        http_response_code(500);
+        // Return 200/400 instead of 500 so frontend alert works
         echo json_encode([
             'success' => false,
             'message' => 'Błąd systemu: ' . $e->getMessage()
@@ -183,7 +183,7 @@ if ($action === 'calculate_fee') {
         ]);
     } catch (Exception $e) {
         error_log("Error calculating fee: " . $e->getMessage());
-        http_response_code(500);
+         // Return 200/400 instead of 500 so frontend alert works
         echo json_encode([
             'success' => false,
             'message' => 'Błąd podczas obliczania opłaty: ' . $e->getMessage()
