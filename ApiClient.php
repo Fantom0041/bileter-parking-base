@@ -31,7 +31,7 @@ class ApiClient {
             'METHOD' => 'LOGIN',
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => '', 
-            'LOGIN' => login,
+            'LOGIN' => $login,
             'PIN' => $pin,
             'PASSWORD' => !empty($password) ? sha1($password) : '',
             'DEVICE_ID' => $deviceId,

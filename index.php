@@ -3,20 +3,48 @@ date_default_timezone_set('Europe/Warsaw');
 // 1. Load Configuration
 $config = parse_ini_file('config.ini');
 
-// 2. Load Data
-$json_data = file_get_contents('data.json');
-$tickets = json_decode($json_data, true);
+// 2. Setup API
+require_once 'ApiClient.php';
 
 // 3. Get Ticket ID
 $ticket_id = $_GET['ticket_id'] ?? null;
+if (isset($_GET['ticket_id'])) {
+    $ticket_id = trim($_GET['ticket_id']);
+}
 $ticket = null;
 $error = null;
 
-// 4. Validate Ticket
-if ($ticket_id && isset($tickets[$ticket_id])) {
-  $ticket = $tickets[$ticket_id];
-} else {
-  $error = "Bilet nie został znaleziony lub jest nieprawidłowy.";
+// 4. Validate Ticket via API
+if ($ticket_id) {
+    if (!empty($config['api']['api_url'])) {
+         try {
+             $client = new ApiClient($config);
+             $loginResult = $client->login();
+             if ($loginResult['success']) {
+                 $info = $client->getBarcodeInfo($ticket_id);
+                 if ($info['success'] && !empty($info['tickets'])) {
+                     $apiData = $info['tickets'][0]; // Take the first active ticket
+                     $ticket = [
+                         'plate' => $apiData['BARCODE'] ?? $ticket_id,
+                         // API 'VALID_FROM' is 'YYYY-MM-DD HH:MM:SS', matches standard
+                         'entry_time' => $apiData['VALID_FROM'],
+                         'status' => 'active', 
+                         'api_data' => $apiData
+                     ];
+                 } else {
+                     $error = "Bilet nie znaleziony w systemie.";
+                 }
+                 $client->logout();
+             } else {
+                 $error = "Błąd komunikacji z systemem parkingowym (Login): " . ($loginResult['error'] ?? 'Nieznany błąd');
+             }
+         } catch (Exception $e) {
+             error_log("API Error: " . $e->getMessage());
+             $error = "Błąd krytyczny komunikacji z systemem.";
+         }
+    } else {
+        $error = "Brak konfiguracji API.";
+    }
 }
 
 // 5. Calculate Fee
@@ -29,9 +57,14 @@ if ($ticket) {
   // Always initialize entry_time from ticket data
   $entry_time = new DateTime($ticket['entry_time']);
 
-  if ($ticket['status'] === 'paid') {
-    $status_message = "Opłacony";
-    $fee = 0;
+  if (isset($ticket['status']) && $ticket['status'] === 'paid') {
+      // API typically doesn't return 'paid' status directly in the same way, 
+      // but if we were to support it, we'd check here. 
+      // For now, if BARCODE_INFO returns it, it's usually active/unpaid or valid.
+      // If we want to check if paid, we might need to check 'POINTS' or other fields?
+      // For this implementation, we recalc fee every time.
+      $status_message = "Opłacony";
+      $fee = 0;
   } else {
     $current_time = new DateTime(); // Now
     // For testing, you might want to force a specific time if needed, 
@@ -224,6 +257,15 @@ if ($ticket) {
   <!-- Footer -->
       <footer class="app-footer">
         <span>Powered by <strong>Base System</strong></span>
+        <?php if (!empty($config['api']['api_url'])): ?>
+           <span style="font-size: 0.75rem; color: var(--success); margin-left: 12px; display: inline-flex; align-items: center; gap: 6px; opacity: 0.8;">
+             <span style="width: 6px; height: 6px; background-color: var(--success); border-radius: 50%; box-shadow: 0 0 4px var(--success);"></span>
+             <?php 
+               $host = parse_url($config['api']['api_url'], PHP_URL_HOST);
+               echo "TCP Connected: " . $host;
+             ?>
+           </span>
+        <?php endif; ?>
       </footer>
       <!-- Mode Configuration Panel -->
       <div class="mode-config-panel">

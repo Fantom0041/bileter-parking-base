@@ -21,6 +21,7 @@ set_exception_handler(function ($exception) {
 header('Content-Type: application/json');
 
 // 1. Wczytanie konfiguracji i danych
+require_once 'ApiClient.php';
 $config = parse_ini_file('config.ini');
 if ($config === false) {
     http_response_code(500);
@@ -28,62 +29,57 @@ if ($config === false) {
     exit;
 }
 
-$json_file = 'data.json';
-$json_data = file_get_contents($json_file);
-if ($json_data === false) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Błąd odczytu bazy danych']);
-    exit;
-}
-
-$tickets = json_decode($json_data, true);
-if ($tickets === null && json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Błąd parsowania bazy danych']);
-    exit;
-}
-
 // 2. Dane z żądania POST
 $input = json_decode(file_get_contents('php://input'), true);
-$action = $input['action'] ?? 'pay'; // Default to pay for backward compatibility
+$action = $input['action'] ?? 'pay';
 
 if ($action === 'create') {
+    // "Create" here actually corresponds to "Start Session" from the UI.
+    // In our API-only mode, we treat this as "Check if ticket/plate exists and redirect".
+    // If we were creating a NEW ticket in the system, we would need TICKET_EXECUTE, 
+    // but the requirement implies working with existing tickets or validating plates.
+    
+    $plate = $input['plate'] ?? null;
+    if (!$plate) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Wymagany numer rejestracyjny']);
+        exit;
+    }
+
     try {
-        // Utworzenie nowego biletu
-        $plate = $input['plate'] ?? null;
-        if (!$plate) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Wymagany numer rejestracyjny']);
-            exit;
+        $client = new ApiClient($config);
+        $loginResult = $client->login();
+        
+        if (!$loginResult['success']) {
+             throw new Exception("Błąd logowania do API: " . ($loginResult['error'] ?? 'Nieznany'));
         }
 
-        $new_id = (string) rand(10000, 99999);
-        // Zapewnij unikalny identyfikator
-        while (isset($tickets[$new_id])) {
-            $new_id = (string) rand(10000, 99999);
-        }
+        $info = $client->getBarcodeInfo($plate);
+        $client->logout();
 
-        $tickets[$new_id] = [
-            'plate' => strtoupper($plate),
-            'entry_time' => date('Y-m-d H:i:s'),
-            'status' => 'active'
-        ];
-
-        if (file_put_contents($json_file, json_encode($tickets, JSON_PRETTY_PRINT))) {
+        if ($info['success'] && !empty($info['tickets'])) {
+            // Found it! Return success so JS redirects to index.php?ticket_id=PLATE
             echo json_encode([
                 'success' => true,
-                'ticket_id' => $new_id
+                'ticket_id' => $plate
             ]);
         } else {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Błąd zapisu bazy danych']);
+            // Not found
+            // In a real app we might want to issue a new ticket here using TICKET_EXECUTE?
+            // But without knowing exact params (TICKET_TYPE etc), we error for now.
+            http_response_code(404);
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Nie znaleziono biletu dla podanego numeru. Upewnij się, że wjechałeś na parking.'
+            ]);
         }
+
     } catch (Exception $e) {
-        error_log("Error creating ticket: " . $e->getMessage());
+        error_log("Error searching ticket: " . $e->getMessage());
         http_response_code(500);
         echo json_encode([
             'success' => false,
-            'message' => 'Błąd podczas tworzenia biletu: ' . $e->getMessage()
+            'message' => 'Błąd systemu: ' . $e->getMessage()
         ]);
     }
     exit;
@@ -94,23 +90,31 @@ if ($action === 'calculate_fee') {
         $ticket_id = $input['ticket_id'] ?? null;
         $extension_minutes = $input['extension_minutes'] ?? 0;
 
-        if (!$ticket_id || !isset($tickets[$ticket_id])) {
+        $ticket = null;
+        if (!empty($config['api']['api_url'])) {
+             $client = new ApiClient($config);
+             if ($client->login()['success']) {
+                 $info = $client->getBarcodeInfo($ticket_id);
+                 if ($info['success'] && !empty($info['tickets'])) {
+                     $apiData = $info['tickets'][0];
+                     $ticket = [
+                         'plate' => $apiData['BARCODE'] ?? $ticket_id,
+                         'entry_time' => $apiData['VALID_FROM'],
+                         'status' => 'active'
+                     ];
+                 }
+                 $client->logout();
+             }
+        }
+
+        if (!$ticket) {
             http_response_code(404);
             echo json_encode(['success' => false, 'message' => 'Bilet nie został znaleziony']);
             exit;
         }
 
-        $ticket = $tickets[$ticket_id];
-
-        // Jeśli bilet już opłacony, zwróć 0
-        if ($ticket['status'] === 'paid') {
-            echo json_encode([
-                'success' => true,
-                'fee' => 0,
-                'currency' => $config['currency']
-            ]);
-            exit;
-        }
+        // Jeśli bilet już opłacony? API nie zwraca 'paid'.
+        // Zakładamy, że jest do opłacenia.
 
         // Oblicz czas trwania
         $entry_time = new DateTime($ticket['entry_time']);
@@ -151,34 +155,35 @@ $ticket_id = $input['ticket_id'] ?? null;
 $amount = $input['amount'] ?? 0;
 
 // 3. Walidacja
-if (!$ticket_id || !isset($tickets[$ticket_id])) {
+$ticket = null;
+if (!empty($config['api']['api_url'])) {
+     $client = new ApiClient($config);
+     if ($client->login()['success']) {
+         $info = $client->getBarcodeInfo($ticket_id);
+         if ($info['success'] && !empty($info['tickets'])) {
+             $ticket = ['status' => 'active']; // Found on API
+         }
+         $client->logout();
+     }
+}
+
+if (!$ticket) {
     http_response_code(404);
     echo json_encode(['success' => false, 'message' => 'Bilet nie został znaleziony']);
     exit;
 }
 
 // 4. Przetworzenie płatności
-// W prawdziwej aplikacji tutaj byłaby integracja z bramką płatności.
-// W tym przykładzie zakładamy sukces.
+// W trybie API-only, jeśli nie mamy metody "oznacz jako opłacony" w API, 
+// jedynie symulujemy sukces dla UI.
 
-// Aktualizacja statusu biletu
-$tickets[$ticket_id]['status'] = 'paid';
-$tickets[$ticket_id]['payment_time'] = date('Y-m-d H:i:s');
-$tickets[$ticket_id]['amount_paid'] = $amount;
+// 5. Wygenerowanie „biletu wyjazdowego” (symulowany kod QR lub dane z API jeśli by były)
+$new_qr_code = "EXIT-" . strtoupper(uniqid());
 
-// Zapis do bazy (pliku)
-if (file_put_contents($json_file, json_encode($tickets, JSON_PRETTY_PRINT))) {
-    // 5. Wygenerowanie „biletu wyjazdowego” (symulowany kod QR)
-    $new_qr_code = "EXIT-" . strtoupper(uniqid());
-
-    echo json_encode([
-        'success' => true,
-        'message' => 'Płatność zakończona powodzeniem',
-        'new_ticket_qr' => $new_qr_code,
-        'valid_until' => date('H:i', strtotime('+15 minutes')) // 15 minut na wyjazd
-    ]);
-} else {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Błąd zapisu bazy danych']);
-}
+echo json_encode([
+    'success' => true,
+    'message' => 'Płatność zakończona powodzeniem',
+    'new_qr_code' => $new_qr_code,
+    'valid_until' => date('H:i', strtotime('+15 minutes'))
+]);
 ?>
