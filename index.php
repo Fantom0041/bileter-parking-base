@@ -265,16 +265,55 @@ if ($ticket) {
         </div>
       </section>
 
-      <!-- Status Indicator -->
+      <!-- Status / Payment Info -->
       <section class="status-section">
-        <div class="status-badge <?php echo $is_free_period ? 'status-free' : 'status-paid'; ?>">
-          <?php echo htmlspecialchars($status_message); ?>
+        <div class="payment-info-card">
+            <?php 
+                $feePaid = 0.00;
+                $validTo = null;
+                $validFrom = $entry_time ? $entry_time->format('Y-m-d H:i:s') : null;
+
+                if (isset($ticket['api_data'])) {
+                    // API returns fee in grosze (usually), need to confirm. user implies 30.00. 
+                    // Let's assume the API returns standard unit or handled logic. 
+                    // Wait, earlier we assumed pennies for FEE (div by 100).
+                    // If user says "30.00", and FEE_PAID is int64, logic dictates it's likely pennies or the raw value.
+                    // Let's safe bet: If it's huge (>1000 without decimal), divide by 100. If small, use as is. 
+                    // Or stick to assumed convection (usually pennies). If user input "30.00", that implies standard currency.
+                    // Given previous steps used /100 for FEE, I'll use /100 for FEE_PAID.
+                    $feePaidRaw = $ticket['api_data']['FEE_PAID'] ?? 0;
+                    $feePaid = $feePaidRaw / 100; 
+
+                    $validToRaw = $ticket['api_data']['VALID_TO'] ?? null;
+                    if ($validToRaw && $validToRaw > $validFrom) {
+                        $validTo = $validToRaw;
+                    }
+                }
+            ?>
+            
+            <div class="payment-row">
+                <div class="payment-col left">
+                    <span class="payment-label">Opłacono:</span>
+                    <span class="payment-value"><?php echo number_format($feePaid, 2, '.', ''); ?></span>
+                </div>
+                <div class="payment-col right">
+                    <!-- Only show 'Wyjazd do' if validTo is available and > validFrom -->
+                     <?php if ($validTo): ?>
+                        <span class="payment-label">Wyjazd do:</span>
+                        <span class="payment-value"><?php echo htmlspecialchars($validTo); ?></span>
+                     <?php else: ?>
+                        <!-- Optional: Placeholder or empty if logic dictates -->
+                        <span class="payment-label" style="opacity: 0;">-</span>
+                        <span class="payment-value" style="opacity: 0;">-</span>
+                     <?php endif; ?>
+                </div>
+            </div>
         </div>
       </section>
 
       <!-- Interactive Spinner -->
       <section class="timer-section">
-        <!-- Unit selector removed as it is handled by Stop section -->
+      /* Manual mode config panel removed - settings provided by API */
         <div class="timer-circle" id="spinnerContainer">
           <div id="slider"></div>
 
@@ -297,32 +336,7 @@ if ($ticket) {
            </span>
         <?php endif; ?>
       </footer>
-      <!-- Mode Configuration Panel -->
-      <div class="mode-config-panel">
-        <div class="mode-group">
-          <label>Tryb:</label>
-          <div class="mode-buttons">
-            <button class="config-btn active" data-config="time_mode" data-value="daily">Dzienny</button>
-            <button class="config-btn" data-config="time_mode" data-value="hourly">Godzinowy</button>
-          </div>
-        </div>
-        <div class="mode-group">
-          <label>Długość:</label>
-          <div class="mode-buttons">
-            <button class="config-btn" data-config="duration_mode" data-value="single_day">1-dniowy</button>
-            <button class="config-btn active" data-config="duration_mode" data-value="multi_day">Wielodniowy</button>
-          </div>
-        </div>
-        <div class="mode-group">
-          <label>Liczenie:</label>
-          <div class="mode-buttons">
-            <button class="config-btn active" data-config="day_counting" data-value="from_entry">Od
-              wjazdu</button>
-            <button class="config-btn" data-config="day_counting" data-value="from_midnight">Od
-              00:00</button>
-          </div>
-        </div>
-      </div>
+      
 
       <div class="spacer"></div>
 
@@ -359,6 +373,26 @@ if ($ticket) {
     const TICKET_ID = "<?php echo $ticket_id; ?>";
     const INITIAL_FEE = <?php echo $fee; ?>;
     const HOURLY_RATE = <?php echo $config['settings']['hourly_rate']; ?>;
+    
+    // Map API settings to JS Config
+    // FEE_TYPE: 0 = hourly, 1 = daily
+    // FEE_STARTS_TYPE: 0 = 24h from entry, 1 = from midnight
+    // FEE_MULTI_DAY: 0 = single day (no), 1 = multi day (yes)
+    const API_SETTINGS = {
+        time_mode: <?php echo isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == 1 ? "'daily'" : "'hourly'"; ?>,
+        duration_mode: <?php echo isset($ticket['api_data']['FEE_MULTI_DAY']) && $ticket['api_data']['FEE_MULTI_DAY'] == 1 ? "'multi_day'" : "'single_day'"; ?>,
+        day_counting: <?php echo isset($ticket['api_data']['FEE_STARTS_TYPE']) && $ticket['api_data']['FEE_STARTS_TYPE'] == 1 ? "'from_midnight'" : "'from_entry'"; ?>
+    };
+
+    // Override local config with API settings for logic
+    const CONFIG = {
+      default_duration: 60,
+      currency: "<?php echo $config['settings']['currency']; ?>",
+      hourly_rate: <?php echo $config['settings']['hourly_rate']; ?>,
+      time_mode: API_SETTINGS.time_mode,
+      duration_mode: API_SETTINGS.duration_mode,
+      day_counting: API_SETTINGS.day_counting
+    };
     const IS_PAID = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
     const ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";
     let ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:s') : ''; ?>";

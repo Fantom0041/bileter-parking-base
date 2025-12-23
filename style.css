@@ -824,3 +824,47 @@ body {
     color: var(--primary);
     letter-spacing: 1px;
 }
+/* Payment Info Card */
+.payment-info-card {
+    background: white;
+    border-radius: 8px;
+    padding: 12px 16px;
+    width: 100%;
+    box-shadow: var(--shadow-soft);
+}
+
+.payment-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.payment-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.payment-col.left {
+    align-items: flex-start;
+}
+
+.payment-col.right {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.payment-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.payment-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Roboto Mono', monospace;
+}
