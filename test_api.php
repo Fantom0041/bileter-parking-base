@@ -1,83 +1,86 @@
 <?php
 /**
- * Test logowania do API
+ * Test surowego połączenia z API przez TCP socket
  */
 
-require_once 'ApiClient.php';
+$host = '172.16.2.51';
+$port = 2332;
 
-// Wczytaj konfigurację
-$config = parse_ini_file('config.ini', true);
+echo "=== TEST SUROWEGO POŁĄCZENIA TCP ===\n\n";
 
-// Utwórz klienta API
-$api = new ApiClient($config);
+// Przygotuj żądanie LOGIN w formacie JSON
+$request = [
+    'METHOD' => 'LOGIN',
+    'ORDER_ID' => 1,
+    'LOGIN_ID' => '',
+    'LOGIN' => 'kasjer',
+    'PIN' => '',
+    'PASSWORD' => 'kasjer',
+    'DEVICE_ID' => 1,
+    'IP' => '192.168.1.100',
+    'NOENCODE' => 0,
+    'ENTITY_ID' => 1
+];
 
-echo "=== TEST LOGOWANIA DO API ===\n\n";
+$jsonRequest = json_encode($request);
 
-// Test 1: Logowanie
-echo "1. Logowanie do systemu...\n";
-$loginResult = $api->login();
+echo "Łączenie z $host:$port...\n";
 
-if ($loginResult['success']) {
-    echo "✓ Logowanie udane!\n";
-    echo "  LOGIN_ID: " . $loginResult['login_id'] . "\n";
-    
-    if (isset($loginResult['user']['LOGIN'])) {
-        echo "  Użytkownik: " . $loginResult['user']['LOGIN'] . "\n";
-    }
-    if (isset($loginResult['user']['NAME'])) {
-        echo "  Imię i nazwisko: " . $loginResult['user']['NAME'] . "\n";
-    }
-    echo "\n";
-    
-    // Test 2: Heart Beat
-    echo "2. Podtrzymanie połączenia (HEART_BEAT)...\n";
-    $heartBeatResult = $api->heartBeat();
-    
-    if ($heartBeatResult['success']) {
-        echo "✓ HEART_BEAT udany!\n\n";
-    } else {
-        echo "✗ HEART_BEAT nieudany: " . $heartBeatResult['error'] . "\n\n";
-    }
-    
-    // Test 3: Pobranie informacji o bilecie (przykład)
-    echo "3. Pobieranie informacji o bilecie (przykładowy kod: TEST123)...\n";
-    $barcodeResult = $api->getBarcodeInfo('TEST123');
-    
-    if ($barcodeResult['success']) {
-        echo "✓ Pobranie informacji udane!\n";
-        echo "  Liczba biletów: " . count($barcodeResult['tickets']) . "\n";
-        echo "  Liczba szafek: " . count($barcodeResult['lockers']) . "\n";
-        
-        if (!empty($barcodeResult['tickets'])) {
-            echo "\n  Bilety:\n";
-            foreach ($barcodeResult['tickets'] as $ticket) {
-                echo "    - " . ($ticket['TICKET_NAME'] ?? 'Brak nazwy') . "\n";
-                echo "      Ważny od: " . ($ticket['VALID_FROM'] ?? 'N/A') . "\n";
-                echo "      Ważny do: " . ($ticket['VALID_TO'] ?? 'N/A') . "\n";
-            }
-        }
-        echo "\n";
-    } else {
-        echo "✗ Pobranie informacji nieudane: " . $barcodeResult['error'] . "\n\n";
-    }
-    
-    // Test 4: Wylogowanie
-    echo "4. Wylogowanie z systemu...\n";
-    $logoutResult = $api->logout();
-    
-    if ($logoutResult['success']) {
-        echo "✓ Wylogowanie udane!\n\n";
-    } else {
-        echo "✗ Wylogowanie nieudane: " . $logoutResult['error'] . "\n\n";
-    }
-    
-} else {
-    echo "✗ Logowanie nieudane!\n";
-    echo "  Błąd: " . $loginResult['error'] . "\n";
-    if (isset($loginResult['status'])) {
-        echo "  Status: " . $loginResult['status'] . "\n";
-    }
-    echo "\n";
+// Otwórz socket TCP
+$socket = @fsockopen($host, $port, $errno, $errstr, 10);
+
+if (!$socket) {
+    echo "✗ Błąd połączenia: $errstr ($errno)\n";
+    exit(1);
 }
 
-echo "=== KONIEC TESTU ===\n";
+echo "✓ Połączono!\n\n";
+
+echo "Wysyłanie żądania LOGIN:\n";
+echo $jsonRequest . "\n\n";
+
+// Wyślij żądanie JSON + nowa linia
+fwrite($socket, $jsonRequest . "\n");
+
+echo "Oczekiwanie na odpowiedź...\n";
+
+// Ustaw timeout na odczyt
+stream_set_timeout($socket, 5);
+
+// Odczytaj odpowiedź
+$response = '';
+while (!feof($socket)) {
+    $line = fgets($socket, 4096);
+    if ($line === false) break;
+    $response .= $line;
+
+    // Jeśli mamy kompletny JSON, przerwij
+    if (json_decode($response) !== null) {
+        break;
+    }
+}
+
+fclose($socket);
+
+echo "\nOdpowiedź:\n";
+echo $response . "\n\n";
+
+// Spróbuj zdekodować JSON
+$decoded = json_decode($response, true);
+
+if ($decoded !== null) {
+    echo "✓ Poprawny JSON!\n";
+    echo "STATUS: " . ($decoded['STATUS'] ?? 'brak') . "\n";
+
+    if (isset($decoded['LOGIN_ID'])) {
+        echo "LOGIN_ID: " . $decoded['LOGIN_ID'] . "\n";
+    }
+
+    if (isset($decoded['USER'])) {
+        echo "USER: " . json_encode($decoded['USER']) . "\n";
+    }
+} else {
+    echo "✗ Niepoprawny JSON lub brak odpowiedzi\n";
+}
+
+echo "\n=== KONIEC TESTU ===\n";

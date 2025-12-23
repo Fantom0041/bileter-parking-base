@@ -26,18 +26,17 @@ class ApiClient {
         $deviceIp = $this->config['api']['device_ip'];
         $entityId = (int)$this->config['api']['entity_id'];
 
-        // Przygotuj dane rozkazu LOGIN
-        // Koduj LOGIN i PASSWORD algorytmem SHA1 (NOENCODE = 0)
+     
         $request = [
             'METHOD' => 'LOGIN',
             'ORDER_ID' => $this->getNextOrderId(),
-            'LOGIN_ID' => '', // Ignorowane w LOGIN
-            'LOGIN' => !empty($login) ? sha1($login) : '',
-            'PIN' => $pin, // PIN bez kodowania
+            'LOGIN_ID' => '', 
+            'LOGIN' => login,
+            'PIN' => $pin,
             'PASSWORD' => !empty($password) ? sha1($password) : '',
             'DEVICE_ID' => $deviceId,
             'IP' => $deviceIp,
-            'NOENCODE' => 0, // Kodujemy SHA1
+            'NOENCODE' => 0, 
             'ENTITY_ID' => $entityId
         ];
 
@@ -53,7 +52,7 @@ class ApiClient {
 
         // Sprawdź status odpowiedzi
         if (isset($response['STATUS']) && $response['STATUS'] === 0) {
-            // StatusOk = 0
+           
             $this->loginId = $response['LOGIN_ID'];
             
             return [
@@ -171,7 +170,7 @@ class ApiClient {
     }
 
     /**
-     * Wysłanie żądania do API przez TCP socket
+     
      * @param array $data Dane żądania
      * @return array|false Odpowiedź z API lub false w przypadku błędu
      */
@@ -183,7 +182,7 @@ class ApiClient {
         
         $jsonRequest = json_encode($data);
         
-        // Otwórz socket TCP
+      
         $socket = @fsockopen($host, $port, $errno, $errstr, 10);
         
         if (!$socket) {
