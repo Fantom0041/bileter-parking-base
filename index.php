@@ -32,17 +32,29 @@ if ($ticket_id) {
              $loginResult = $client->login();
              if ($loginResult['success']) {
                  $info = $client->getBarcodeInfo($ticket_id);
-                 if ($info['success'] && !empty($info['tickets'])) {
-                     $apiData = $info['tickets'][0]; // Take the first active ticket
-                     $ticket = [
-                         'plate' => $apiData['BARCODE'] ?? $ticket_id,
-                         // API 'VALID_FROM' is 'YYYY-MM-DD HH:MM:SS', matches standard
-                         'entry_time' => $apiData['VALID_FROM'],
-                         'status' => 'active', 
-                         'api_data' => $apiData
-                     ];
+                 if ($info['success']) {
+                     if (!empty($info['tickets'])) {
+                         $apiData = $info['tickets'][0]; // Take the first active ticket
+                         $ticket = [
+                             'plate' => $apiData['BARCODE'] ?? $ticket_id,
+                             'entry_time' => $apiData['VALID_FROM'],
+                             'status' => 'active', 
+                             'api_data' => $apiData
+                         ];
+                     } elseif (isset($info['is_new']) && $info['is_new']) {
+                         // API confirmed new ticket session (TICKET_EXIST=0 or Error -3 handled)
+                         $ticket = [
+                             'plate' => $ticket_id,
+                             'entry_time' => date('Y-m-d H:i:s'), // Default to now
+                             'status' => 'active',
+                             'api_data' => $info['defaults'] ?? [] // Use defaults if available
+                         ];
+                     } else {
+                         // Valid response but no tickets and no is_new flag? match legacy behavior
+                         $error = "Bilet nie znaleziony w systemie.";
+                     }
                  } else {
-                     $error = "Bilet nie znaleziony w systemie.";
+                     $error = "Bilet nie znaleziony w systemie (Błąd API).";
                  }
                  $client->logout();
              } else {
