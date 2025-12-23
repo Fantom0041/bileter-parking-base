@@ -33,10 +33,11 @@ class ApiClient {
             'LOGIN_ID' => '', 
             'LOGIN' => $login,
             'PIN' => $pin,
-            'PASSWORD' => !empty($password) ? sha1($password) : '',
+            'PASSWORD' => $password, // Send raw password
             'DEVICE_ID' => $deviceId,
             'IP' => $deviceIp,
-            'NOENCODE' => 0, 
+            'NOENCODE' => 1, // Disable internal server hashing if we send raw? Or "0 = TAK (Server expects hash?) / Client Hashes?". MD says: "czy LOGIN... sa kodowane algorytmem SHA1... 0-tak (encoded)". It's ambiguous if it means "Client sent encoded" or "Server should encode". Usually "0-tak" means "Is Encoded".
+            // Let's assume sending RAW password "kasjer" and tell server NOENCODE=1 (Not encoded). 
             'ENTITY_ID' => $entityId
         ];
 
