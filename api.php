@@ -22,7 +22,7 @@ header('Content-Type: application/json');
 
 // 1. Wczytanie konfiguracji i danych
 require_once 'ApiClient.php';
-$config = parse_ini_file('config.ini');
+$config = parse_ini_file('config.ini', true);
 if ($config === false) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Błąd konfiguracji']);
@@ -125,18 +125,18 @@ if ($action === 'calculate_fee') {
         $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
 
         // Sprawdź okres bezpłatny
-        if ($duration_minutes <= $config['free_minutes']) {
+        if ($duration_minutes <= $config['settings']['free_minutes']) {
             $fee = 0;
         } else {
             // Oblicz opłatę godzinową
             $hours = ceil($duration_minutes / 60);
-            $fee = $hours * $config['hourly_rate'];
+            $fee = $hours * $config['settings']['hourly_rate'];
         }
 
         echo json_encode([
             'success' => true,
             'fee' => $fee,
-            'currency' => $config['currency'],
+            'currency' => $config['settings']['currency'],
             'duration_minutes' => $duration_minutes
         ]);
     } catch (Exception $e) {

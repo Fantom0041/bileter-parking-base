@@ -1,7 +1,7 @@
 <?php
 date_default_timezone_set('Europe/Warsaw');
 // 1. Load Configuration
-$config = parse_ini_file('config.ini');
+$config = parse_ini_file('config.ini', true);
 
 // 2. Setup API
 require_once 'ApiClient.php';
@@ -73,14 +73,14 @@ if ($ticket) {
     $interval = $entry_time->diff($current_time);
     $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
 
-    if ($duration_minutes <= $config['free_minutes']) {
+    if ($duration_minutes <= $config['settings']['free_minutes']) {
       $fee = 0;
       $is_free_period = true;
-      $status_message = "Okres bezpłatny (" . ($config['free_minutes'] - $duration_minutes) . " min pozostało)";
+      $status_message = "Okres bezpłatny (" . ($config['settings']['free_minutes'] - $duration_minutes) . " min pozostało)";
     } else {
       // Simple hourly calculation: ceil(hours) * rate
       $hours = ceil($duration_minutes / 60);
-      $fee = $hours * $config['hourly_rate'];
+      $fee = $hours * $config['settings']['hourly_rate'];
       $status_message = "Aktywne";
     }
   }
@@ -166,7 +166,7 @@ if ($ticket) {
       <section class="details-section">
         <div class="info-card-full">
           <span class="label">Strefa</span>
-          <span class="value"><?php echo htmlspecialchars($config['station_id']); ?></span>
+          <span class="value"><?php echo htmlspecialchars($config['settings']['station_id']); ?></span>
         </div>
 
         <!-- Collapsed Entry Time (Default) -->
@@ -307,7 +307,7 @@ if ($ticket) {
       <!-- Bottom Sheet: Payment Control -->
       <footer class="payment-sheet" id="paymentSheet">
         <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
-          <?php echo $fee > 0 ? 'Zapłać ' . number_format($fee, 2) . ' ' . $config['currency'] : 'Wyjazd bez opłaty'; ?>
+          <?php echo $fee > 0 ? 'Zapłać ' . number_format($fee, 2) . ' ' . $config['settings']['currency'] : 'Wyjazd bez opłaty'; ?>
         </button>
       </footer>
 
@@ -336,15 +336,15 @@ if ($ticket) {
   <script>
     const TICKET_ID = "<?php echo $ticket_id; ?>";
     const INITIAL_FEE = <?php echo $fee; ?>;
-    const HOURLY_RATE = <?php echo $config['hourly_rate']; ?>;
-    const IS_PAID = <?php echo ($ticket && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
+    const HOURLY_RATE = <?php echo $config['settings']['hourly_rate']; ?>;
+    const IS_PAID = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
     const ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";
     let ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:s') : ''; ?>";
 
     // Detect "New Ticket" (Pre-booking) state
     // If created < 1 minute ago AND not paid, assume new.
     // Or better, pass a query param or just logic:
-    const IS_PRE_BOOKING = <?php echo ($ticket && $ticket['status'] !== 'paid' && $ticket_id) ? 'true' : 'false'; ?>;
+    const IS_PRE_BOOKING = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] !== 'paid' && $ticket_id) ? 'true' : 'false'; ?>;
     // Note: Ideally we'd have a specific flag from creation referer, but this checks if it's an active unpaid ticket.
     // Actually, "New Ticket" vs "Scanned".
     // Use a heuristic: If we just created it, we are pre-booking. If we scanned it, we are paying.
@@ -360,9 +360,9 @@ if ($ticket) {
     const IS_EDITABLE_START = IS_PRE_BOOKING;
 
     // Parking modes configuration
-    const TIME_MODE = "<?php echo $config['time_mode'] ?? 'daily'; ?>"; // daily or hourly
-    const DURATION_MODE = "<?php echo $config['duration_mode'] ?? 'multi_day'; ?>"; // single_day or multi_day
-    const DAY_COUNTING = "<?php echo $config['day_counting'] ?? 'from_entry'; ?>"; // from_entry or from_midnight
+    const TIME_MODE = "<?php echo $config['parking_modes']['time_mode'] ?? 'daily'; ?>"; // daily or hourly
+    const DURATION_MODE = "<?php echo $config['parking_modes']['duration_mode'] ?? 'multi_day'; ?>"; // single_day or multi_day
+    const DAY_COUNTING = "<?php echo $config['parking_modes']['day_counting'] ?? 'from_entry'; ?>"; // from_entry or from_midnight
   </script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>
