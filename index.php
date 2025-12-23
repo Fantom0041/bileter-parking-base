@@ -327,13 +327,18 @@ if ($ticket) {
       <footer class="app-footer">
         <span>Powered by <strong>Base System</strong></span>
         <?php if (!empty($config['api']['api_url'])): ?>
-           <span style="font-size: 0.75rem; color: var(--success); margin-left: 12px; display: inline-flex; align-items: center; gap: 6px; opacity: 0.8;">
-             <span style="width: 6px; height: 6px; background-color: var(--success); border-radius: 50%; box-shadow: 0 0 4px var(--success);"></span>
+           <div style="font-size: 0.7rem; color: #999; margin-top: 4px; text-align: center;">
              <?php 
                $host = parse_url($config['api']['api_url'], PHP_URL_HOST);
-               echo "TCP Connected: " . $host;
+               echo "TCP: " . $host; 
              ?>
-           </span>
+             <?php if ($ticket && isset($ticket['api_data'])): ?>
+                <br>
+                <span title="FEE_TYPE">Tryb: <strong><?php echo (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == 1) ? 'Dzienny' : 'Godzinowy'; ?></strong></span> |
+                <span title="FEE_MULTI_DAY">Multi: <strong><?php echo (isset($ticket['api_data']['FEE_MULTI_DAY']) && $ticket['api_data']['FEE_MULTI_DAY'] == 1) ? 'Tak' : 'Nie'; ?></strong></span> |
+                <span title="FEE_STARTS_TYPE">Start: <strong><?php echo (isset($ticket['api_data']['FEE_STARTS_TYPE']) && $ticket['api_data']['FEE_STARTS_TYPE'] == 1) ? '00:00' : 'Wjazd'; ?></strong></span>
+             <?php endif; ?>
+           </div>
         <?php endif; ?>
       </footer>
       
