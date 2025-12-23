@@ -103,14 +103,22 @@ if ($ticket) {
 </head>
 
 <body>
-  <?php if ($error): ?>
+  <!-- DEBUG: TicketID: <?php echo htmlspecialchars(var_export($ticket_id, true)); ?> Ticket: <?php echo htmlspecialchars(var_export($ticket, true)); ?> -->
+  <?php if (!$ticket): ?>
     <div class="error-container">
       <!-- Logo -->
       <div style="margin-bottom: 20px; background: rgba(0, 0, 0, 0.7); padding: 15px 30px; border-radius: 12px; display: inline-block;">
         <img src="image/rusin-ski_white.svg" alt="Rusin Ski" style="height: 60px; max-width: 200px; object-fit: contain; display: block;">
       </div>
-      <!-- <div class="icon-error" style="background: rgba(106, 27, 154, 0.1); color: var(--primary);">+</div> -->
+      
       <h1>Rozlicz parkowanie</h1>
+      
+      <?php if ($error): ?>
+          <div style="background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffcdd2;">
+              <?php echo htmlspecialchars($error); ?>
+          </div>
+      <?php endif; ?>
+
       <p>Wpisz numer rejestracyjny, aby rozpocząć nową sesję.</p>
 
       <form id="newTicketForm" class="new-ticket-form">
