@@ -96,9 +96,12 @@ if ($action === 'create') {
                 ]);
                 exit;
             }
-        } else {
-            // API returned error
-             throw new Exception("Błąd API: " . ($info['error'] ?? 'Nieznany'));
+        }
+        
+        if (!$info['success']) {
+             // Include debug info in error message
+             $debugInfo = isset($info['debug_request']) ? json_encode($info['debug_request']) : '';
+             throw new Exception("Błąd API: " . ($info['error'] ?? 'Nieznany') . " | Debug: " . $debugInfo);
         }
 
     } catch (Exception $e) {
