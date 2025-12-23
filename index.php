@@ -15,8 +15,18 @@ $ticket = null;
 $error = null;
 
 // 4. Validate Ticket via API
+$is_simulated = isset($_GET['simulated']) && $_GET['simulated'] == '1';
+
 if ($ticket_id) {
-    if (!empty($config['api']['api_url'])) {
+    if ($is_simulated) {
+        // Create Mock Ticket for simulation
+        $ticket = [
+            'plate' => $ticket_id,
+            'entry_time' => date('Y-m-d H:i:s'), // Start now
+            'status' => 'active', 
+            'api_data' => []
+        ];
+    } else if (!empty($config['api']['api_url'])) {
          try {
              $client = new ApiClient($config);
              $loginResult = $client->login();

@@ -34,7 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (data.success) {
-                    window.location.href = `index.php?ticket_id=${data.ticket_id}`;
+                    if (data.simulated) {
+                        window.location.href = `index.php?ticket_id=${data.ticket_id}&simulated=1`;
+                    } else {
+                        window.location.href = `index.php?ticket_id=${data.ticket_id}`;
+                    }
                 } else {
                     alert('Błąd: ' + data.message);
                     btn.innerText = originalText;

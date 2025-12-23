@@ -60,33 +60,58 @@ if ($action === 'create') {
         $info = $client->getBarcodeInfo($plate);
         $client->logout();
 
-        if ($info['success'] && !empty($info['tickets'])) {
-            // Found it! Return success so JS redirects to index.php?ticket_id=PLATE
-            echo json_encode([
-                'success' => true,
-                'ticket_id' => $plate
-            ]);
+        if ($info['success']) {
+            if (!empty($info['tickets'])) {
+                // Found existing active ticket!
+                echo json_encode([
+                    'success' => true,
+                    'ticket_id' => $plate
+                ]);
+                exit;
+            } elseif (isset($info['is_new']) && $info['is_new']) {
+                 // API said: Ticket doesn't exist (TICKET_EXIST=0), treat as new session
+                 // We don't mark as 'simulated' anymore, but as valid 'new' session backed by API info.
+                 // However, frontend JS expects 'simulated=1' to trigger the "New Ticket" UI flow?
+                 // Wait, User said "Remove simulation, use only API".
+                 // This means if I scan a plate that doesn't exist, I should probably START a session via API?
+                 // But we don't have TICKET_EXECUTE here.
+                 // We assume "New Session" means showing the UI to pay/park.
+                 // Let's return success without 'simulated' flag, but maybe with a 'is_new' flag if frontend uses it?
+                 // Actually, frontend logic for 'simulated' was just to redirect with ?simulated=1.
+                 // If we remove 'simulated', frontend redirects to normal view.
+                 // Normal view fetches ticket details. API will return TICKET_EXIST=0 details.
+                 // So we just return success.
+                 echo json_encode([
+                    'success' => true,
+                    'ticket_id' => $plate
+                    // 'is_new' => true // Optional if frontend needs it
+                ]);
+                exit;             
+            } else {
+                 // Success but empty? Should not happen with new logic, but treat as empty/not found
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false, 
+                    'message' => 'Nie znaleziono biletu w systemie API.'
+                ]);
+                exit;
+            }
         } else {
-            // Not found
-            // In a real app we might want to issue a new ticket here using TICKET_EXECUTE?
-            // But without knowing exact params (TICKET_TYPE etc), we error for now.
-            // http_response_code(404); // Changed to 200 to allow JS to read the message
-            http_response_code(200); 
-            echo json_encode([
-                'success' => false, 
-                'message' => 'Nie znaleziono biletu. Odpowiedź API: ' . json_encode($info)
-            ]);
+            // API returned error
+             throw new Exception("Błąd API: " . ($info['error'] ?? 'Nieznany'));
         }
 
     } catch (Exception $e) {
-        error_log("Error searching ticket: " . $e->getMessage());
-        // Return 200/400 instead of 500 so frontend alert works
+        error_log("API Error during search: " . $e->getMessage());
+        
+        // Remove Simulation Fallback. Return Error.
+        http_response_code(400); // Bad Request / Error
         echo json_encode([
             'success' => false,
             'message' => 'Błąd systemu: ' . $e->getMessage()
         ]);
+        exit;
     }
-    exit;
 }
 
 if ($action === 'calculate_fee') {

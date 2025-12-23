@@ -143,6 +143,12 @@ class ApiClient {
      * @param string $date Data rozliczenia (Y-m-d H:i:s)
      * @return array
      */
+    /**
+     * Pobranie informacji o opłacie parkingowej
+     * @param string $barcode Numer rejestracyjny/kod kreskowy
+     * @param string $date Data rozliczenia (Y-m-d H:i:s)
+     * @return array
+     */
     public function getParkingFee($barcode, $date) {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];
@@ -153,7 +159,15 @@ class ApiClient {
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => $this->loginId,
             'BARCODE' => $barcode,
-            'DATE' => $date
+            'DATE_FROM' => $date, // For fee calculation, check at specific time
+            'DATE_TO' => $date,   // API doc says "from - to". If calculating fee for a moment, likely same or from entry? 
+                                  // Doc says: "Date from (load current date identical to date to) - so if no ticket, returns default."
+                                  // For fee calculation, usually we provide the "Exit Time".
+                                  // Since doc is sparse on "Calculate Fee at X time", and says "FEE: current fee",
+                                  // we likely just query for the status "NOW" (at exit time).
+                                  // Let's pass $date for both as the point of truth.
+            'DEVICE_ID' => (int)$this->config['api']['device_id'],
+            'ENTITY_ID' => (int)$this->config['api']['entity_id']
         ];
 
         $response = $this->sendRequest($request);
@@ -162,10 +176,10 @@ class ApiClient {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
 
-        if (isset($response['STATUS']) && $response['STATUS'] === 0) {
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             return [
                 'success' => true,
-                'data' => $response // API returns FEE, VALID_FROM, etc directly in root or similar structure
+                'data' => $response
             ];
         } else {
             return [

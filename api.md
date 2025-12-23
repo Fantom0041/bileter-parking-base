@@ -96,3 +96,52 @@ METHOD: PARK_TICKET_GET_INFO
 	FEE_MULTI_DAY			:enum				[tak/nie]
 	OBJECT_LIST				:table				<lista obiektow na ktore wpuszcza parking>
 		OBJECT_NAME			:string				<nazwa obiektu>
+
+
+        poprawki 
+
+
+     [typ oplaty parkingowej]
+		0 - godzinowa
+		1 - dzienna
+
+[typ naliczania oplaty parkingowej]
+		0 - 24h od wjazdu
+		1 - pierwszy dzien od wjazdu, kolejny od 00:00
+
+[tak/nie]
+		0 - nie
+		1 - tak
+
+----------------------------------------------------------------------------------	
+  METHOD: PARK_TICKET_GET_INFO				<zwraca info o biletach parkingowych>
+----------------------------------------------------------------------------------	
+	[standardowe pole rozkazu]
+    BARCODE					:string		<wymagany>	<kod kreskowy/numer karty/numer zegarka/numer rejestracyjny>
+	DATE_FROM				:timestamp	<wymagany>	<data start>
+	DATE_TO					:timestamp	<wymagany>	<data stop>
+----------------------------------------------------------------------------------
+  ODPOWIEDZ PRAWDILOWA:
+----------------------------------------------------------------------------------
+	[standardowe pole odpowiedzi]
+	DATE					:string				<data info>
+	REGISTRATION_NUMBER		:string				<numer rejestracyjny samochodu>
+	TICKET_ID				:int64				<identyfikator biletu parkingowego>
+	TICKET_NAME				:string				<nazwa biletu parkingowego>
+	VALID_FROM				:string				<wazny od - format: 2000-01-01 00:00:00>
+	VALID_TO				:string 			<wazny do - format: 2000-12-31 23:59:50>
+													< - w okresie od - do bilet nie nalicza oplaty>
+	FEE						:int64				<aktualna oplata - po odjeciu ewentualnych wczesniejszym oplat>
+	FEE_PAID				:int64				<oplata juz zaplacona>
+    FEE_TYPE				:enum				[typ oplaty parkingowej]
+	FEE_STARTS_TYPE			:enum				[typ naliczania oplaty parkingowej]
+	FEE_MULTI_DAY			:enum				[tak/nie]
+	OBJECT_LIST				:table				<lista obiektow na ktore wpuszcza parking>
+		OBJECT_NAME			:string				<nazwa obiektu>
+	TICKET_EXIST			:enum				[tak/nie]
+
+
+UWAGI:
+1. Musi podawa date "od", czyli przy zaladowaniu date atkualna (identyczna jak data "do") - po to ze jak na numerze rejestracyjnym / numerze biletu nie ma aktywnego bieltu parkignowego, to system zwroci ustawienia dla biletu domyslnego w podanych datach od - do
+2. TICKET_EXIST - jesli zwroci "0" tzn ze biletu nie ma i mozna mu ustawic :dowolna" date "od" (czyli date start) - jesli system jest jednodniowy to tylko w obrebie aktualnego dnia (chyba)
+3. FEE_PAID - jesli jest > 0 to wysweitlamy, ze taka kwota zostala juz oplacona (wowczas VALID_TO pokazuje date do ktorej bilet kjest
