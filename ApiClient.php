@@ -210,7 +210,8 @@ class ApiClient {
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => $this->loginId,
             'BARCODE' => $barcode,
-            'DATE' => date('Y-m-d H:i:s'), // Required param, use current time
+            'DATE_FROM' => date('Y-m-d H:i:s'), 
+            'DATE_TO' => date('Y-m-d H:i:s'),
             'DEVICE_ID' => (int)$this->config['api']['device_id'],
             'ENTITY_ID' => (int)$this->config['api']['entity_id']
         ];

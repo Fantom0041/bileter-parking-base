@@ -105,7 +105,8 @@ if ($action === 'create') {
         error_log("API Error during search: " . $e->getMessage());
         
         // Remove Simulation Fallback. Return Error.
-        http_response_code(400); // Bad Request / Error
+        // Remove Simulation Fallback. Return Error.
+        http_response_code(200); // Changed to 200 to allow JS to read message
         echo json_encode([
             'success' => false,
             'message' => 'Błąd systemu: ' . $e->getMessage()
