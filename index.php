@@ -313,7 +313,7 @@ if ($ticket) {
 
       <!-- Interactive Spinner -->
       <section class="timer-section">
-      /* Manual mode config panel removed - settings provided by API */
+  
         <div class="timer-circle" id="spinnerContainer">
           <div id="slider"></div>
 
@@ -334,9 +334,13 @@ if ($ticket) {
              ?>
              <?php if ($ticket && isset($ticket['api_data'])): ?>
                 <br>
-                <span title="FEE_TYPE">Tryb: <strong><?php echo (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == 1) ? 'Dzienny' : 'Godzinowy'; ?></strong></span> |
-                <span title="FEE_MULTI_DAY">Multi: <strong><?php echo (isset($ticket['api_data']['FEE_MULTI_DAY']) && $ticket['api_data']['FEE_MULTI_DAY'] == 1) ? 'Tak' : 'Nie'; ?></strong></span> |
-                <span title="FEE_STARTS_TYPE">Start: <strong><?php echo (isset($ticket['api_data']['FEE_STARTS_TYPE']) && $ticket['api_data']['FEE_STARTS_TYPE'] == 1) ? '00:00' : 'Wjazd'; ?></strong></span>
+                <div style="font-family: monospace; font-size: 0.65rem; color: #777;">
+                    RAW API DATA:<br>
+                    FEE_TYPE: <?php var_export($ticket['api_data']['FEE_TYPE'] ?? 'N/A'); ?><br>
+                    FEE_MULTI: <?php var_export($ticket['api_data']['FEE_MULTI_DAY'] ?? 'N/A'); ?><br>
+                    FEE_START: <?php var_export($ticket['api_data']['FEE_STARTS_TYPE'] ?? 'N/A'); ?><br>
+                    EXIST: <?php var_export($ticket['api_data']['TICKET_EXIST'] ?? 'N/A'); ?>
+                </div>
              <?php endif; ?>
            </div>
         <?php endif; ?>
@@ -383,10 +387,32 @@ if ($ticket) {
     // FEE_TYPE: 0 = hourly, 1 = daily
     // FEE_STARTS_TYPE: 0 = 24h from entry, 1 = from midnight
     // FEE_MULTI_DAY: 0 = single day (no), 1 = multi day (yes)
+    // Map API settings to JS Config with Fallback to config.ini
+    // FEE_TYPE: 0 = hourly, 1 = daily
+    // FEE_STARTS_TYPE: 0 = 24h from entry, 1 = from midnight
+    // FEE_MULTI_DAY: 0 = single day (no), 1 = multi day (yes)
     const API_SETTINGS = {
-        time_mode: <?php echo isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == 1 ? "'daily'" : "'hourly'"; ?>,
-        duration_mode: <?php echo isset($ticket['api_data']['FEE_MULTI_DAY']) && $ticket['api_data']['FEE_MULTI_DAY'] == 1 ? "'multi_day'" : "'single_day'"; ?>,
-        day_counting: <?php echo isset($ticket['api_data']['FEE_STARTS_TYPE']) && $ticket['api_data']['FEE_STARTS_TYPE'] == 1 ? "'from_midnight'" : "'from_entry'"; ?>
+        time_mode: <?php 
+            if (isset($ticket['api_data']['FEE_TYPE'])) {
+                echo $ticket['api_data']['FEE_TYPE'] == 1 ? "'daily'" : "'hourly'";
+            } else {
+                echo "'" . ($config['parking_modes']['time_mode'] ?? 'hourly') . "'";
+            }
+        ?>,
+        duration_mode: <?php 
+            if (isset($ticket['api_data']['FEE_MULTI_DAY'])) {
+                echo $ticket['api_data']['FEE_MULTI_DAY'] == 1 ? "'multi_day'" : "'single_day'";
+            } else {
+                 echo "'" . ($config['parking_modes']['duration_mode'] ?? 'single_day') . "'";
+            }
+        ?>,
+        day_counting: <?php 
+            if (isset($ticket['api_data']['FEE_STARTS_TYPE'])) {
+                echo $ticket['api_data']['FEE_STARTS_TYPE'] == 1 ? "'from_midnight'" : "'from_entry'";
+            } else {
+                 echo "'" . ($config['parking_modes']['day_counting'] ?? 'from_entry') . "'";
+            }
+        ?>
     };
 
     // Override local config with API settings for logic
