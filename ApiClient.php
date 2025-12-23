@@ -33,11 +33,10 @@ class ApiClient {
             'LOGIN_ID' => '', 
             'LOGIN' => $login,
             'PIN' => $pin,
-            'PASSWORD' => $password, // Send raw password
+            'PASSWORD' => !empty($password) ? sha1($password) : '',
             'DEVICE_ID' => $deviceId,
             'IP' => $deviceIp,
-            'NOENCODE' => 1, // Disable internal server hashing if we send raw? Or "0 = TAK (Server expects hash?) / Client Hashes?". MD says: "czy LOGIN... sa kodowane algorytmem SHA1... 0-tak (encoded)". It's ambiguous if it means "Client sent encoded" or "Server should encode". Usually "0-tak" means "Is Encoded".
-            // Let's assume sending RAW password "kasjer" and tell server NOENCODE=1 (Not encoded). 
+            'NOENCODE' => 1,
             'ENTITY_ID' => $entityId
         ];
 
@@ -52,7 +51,7 @@ class ApiClient {
         }
 
         // Sprawdź status odpowiedzi
-        if (isset($response['STATUS']) && $response['STATUS'] === 0) {
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
            
             $this->loginId = $response['LOGIN_ID'];
             
@@ -91,7 +90,7 @@ class ApiClient {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
 
-        if (isset($response['STATUS']) && $response['STATUS'] === 0) {
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             return ['success' => true];
         } else {
             return [
@@ -122,7 +121,7 @@ class ApiClient {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
 
-        if (isset($response['STATUS']) && $response['STATUS'] === 0) {
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             $this->loginId = null;
             return ['success' => true];
         } else {
@@ -199,7 +198,7 @@ class ApiClient {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
 
-        if (isset($response['STATUS']) && $response['STATUS'] === 0) {
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             return [
                 'success' => true,
                 'tickets' => $response['TICKETS'] ?? [],
