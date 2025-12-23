@@ -67,7 +67,8 @@ if ($action === 'create') {
             // Not found
             // In a real app we might want to issue a new ticket here using TICKET_EXECUTE?
             // But without knowing exact params (TICKET_TYPE etc), we error for now.
-            http_response_code(404);
+            // http_response_code(404); // Changed to 200 to allow JS to read the message
+            http_response_code(200); 
             echo json_encode([
                 'success' => false, 
                 'message' => 'Nie znaleziono biletu dla podanego numeru. Upewnij się, że wjechałeś na parking.'
@@ -108,7 +109,8 @@ if ($action === 'calculate_fee') {
         }
 
         if (!$ticket) {
-            http_response_code(404);
+            // http_response_code(404);
+            http_response_code(200);
             echo json_encode(['success' => false, 'message' => 'Bilet nie został znaleziony']);
             exit;
         }
@@ -210,7 +212,8 @@ if (!empty($config['api']['api_url'])) {
 }
 
 if (!$ticket) {
-    http_response_code(404);
+    // http_response_code(404);
+    http_response_code(200);
     echo json_encode(['success' => false, 'message' => 'Bilet nie został znaleziony']);
     exit;
 }
