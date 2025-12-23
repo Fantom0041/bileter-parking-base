@@ -224,7 +224,13 @@ class ApiClient {
                     'VALID_FROM' => $response['VALID_FROM'] ?? null,
                     'VALID_TO' => $response['VALID_TO'] ?? null,
                     'FEE' => $response['FEE'] ?? 0,
-                    'STATUS' => 'active'
+                    'STATUS' => 'active',
+                    // Include all other fields (FEE_TYPE, FEE_PAID, etc)
+                    'FEE_TYPE' => $response['FEE_TYPE'] ?? null,
+                    'FEE_STARTS_TYPE' => $response['FEE_STARTS_TYPE'] ?? null,
+                    'FEE_MULTI_DAY' => $response['FEE_MULTI_DAY'] ?? null,
+                    'FEE_PAID' => $response['FEE_PAID'] ?? 0,
+                    'TICKET_EXIST' => $response['TICKET_EXIST'] ?? null
                 ];
                 return [
                     'success' => true,
