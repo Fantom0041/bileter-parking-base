@@ -130,10 +130,11 @@ if ($ticket) {
     <!-- Header -->
     <header class="app-header">
       <div class="header-top">
+        <div class="brand-logo">P</div>
+        
         <!-- Regulamin Link -->
         <a href="regulamin.php" class="regulations-link">Regulamin</a>
 
-        <div class="brand-logo">P</div>
         <!-- Client Logo -->
         <div style="display: flex; align-items: center;">
           <img src="image/rusin-ski_white.svg" alt="Rusin Ski"
@@ -153,7 +154,7 @@ if ($ticket) {
           </div>
         <?php endif; ?>
 
-        <p>Wpisz numer rejestracyjny, aby rozpocząć nową sesję.</p>
+        <p>Wpisz numer rejestracyjny / numer biletu.</p>
 
         <form id="newTicketForm" class="new-ticket-form">
           <input type="text" id="plateInput" placeholder="np. KRA 12345" maxlength="10" required>

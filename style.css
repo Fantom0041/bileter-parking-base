@@ -67,20 +67,18 @@ body {
 }
 
 /* Regulations Link */
+/* Regulations Link */
 .regulations-link {
-    position: absolute;
-    top: -24px;
-    /* Move above the header */
-    right: 4px;
-    font-size: 12px;
-    color: var(--text-secondary);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
     text-decoration: none;
     font-weight: 500;
     transition: color 0.2s;
+    padding: 8px 12px;
 }
 
 .regulations-link:hover {
-    color: var(--primary);
+    color: white;
     text-decoration: underline;
 }
 
