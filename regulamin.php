@@ -52,9 +52,9 @@
     <div class="spacer"></div>
 
     <!-- Footer -->
-    <footer class="app-footer">
-      <span>Powered by <a href="https://www.basesystem.pl/" target="_blank">Base System</a></span>
-    </footer>
+    <!-- Footer -->
+    <?php include 'footer.php'; ?>
+
   </div>
 </body>
 
