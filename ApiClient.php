@@ -12,7 +12,7 @@ class ApiClient
     protected $orderIdCounter = 1;
     private $logger;
 
-    public function __construct($config )
+    public function __construct($config)
     {
         $this->config = $config;
         $this->apiUrl = $config['api']['api_url'];
@@ -146,30 +146,40 @@ class ApiClient
      * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
      */
     /**
-     * Pobranie informacji o opłacie parkingowej
-     * @param string $barcode Numer rejestracyjny/kod kreskowy
-     * @param string $date Data rozliczenia (Y-m-d H:i:s)
-     * @return array
+     * Pobranie informacji o biletach dla podanego kodu kreskowego
+     * @param string $barcode Kod kreskowy/numer karty
+     * @param string|null $dateFrom Data od (opcjonalnie)
+     * @param string|null $dateTo Data do (opcjonalnie)
+     * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
      */
     /**
-     * Pobranie informacji o opłacie parkingowej
-     * @param string $barcode Numer rejestracyjny/kod kreskowy
-     * @param string $date Data rozliczenia (Y-m-d H:i:s)
-     * @return array
+     * Pobranie informacji o biletach dla podanego kodu kreskowego lub numeru rejestracyjnego
+     * @param string $barcode Kod kreskowy lub numer rejestracyjny
+     * @param string|null $dateFrom Data od (opcjonalnie, format Y-m-d H:i:s)
+     * @param string|null $dateTo Data do (opcjonalnie, format Y-m-d H:i:s)
+     * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
      */
-    public function getParkingFee($barcode, $date)
+    public function getParkTicketInfo($barcode, $dateFrom = null, $dateTo = null)
     {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];
         }
 
+        // Logic: Backend calculates fee from DATE_FROM to DATE_TO.
+        // If not provided, we default to NOW for both, which usually implies "check status at this moment".
+        // However, for fee calculation, caller must provide valid range.
+        $dateFrom = $dateFrom ?? date('Y-m-d H:i:s');
+        $dateTo = $dateTo ?? date('Y-m-d H:i:s');
+        $barcode = trim($barcode);
+
+        // API expects BARCODE field, which handles both Ticket ID and Plate Number intelligently on the server side.
         $request = [
             'METHOD' => 'PARK_TICKET_GET_INFO',
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => $this->loginId,
             'BARCODE' => $barcode,
-            'DATE_FROM' => $date, // For fee calculation, check at specific time
-            'DATE_TO' => $date    // API doc says "from - to". 
+            'DATE_FROM' => $dateFrom,
+            'DATE_TO' => $dateTo
         ];
 
         $response = $this->sendRequest($request);
@@ -177,52 +187,7 @@ class ApiClient
         if ($response === false) {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
-
-        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
-            return [
-                'success' => true,
-                'data' => $response
-            ];
-        } else {
-            return [
-                'success' => false,
-                'error' => $this->getErrorMessage($response['STATUS'] ?? -999)
-            ];
-        }
-    }
-
-    /**
-     * Pobranie informacji o biletach dla podanego kodu kreskowego
-     * @param string $barcode Kod kreskowy/numer karty
-     * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
-     */
-    /**
-     * Pobranie informacji o biletach dla podanego kodu kreskowego
-     * @param string $barcode Kod kreskowy/numer karty
-     * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
-     */
-    public function getBarcodeInfo($barcode)
-    {
-        if (!$this->loginId) {
-            return ['success' => false, 'error' => 'Nie zalogowano'];
-        }
-
-        // Use PARK_TICKET_GET_INFO as BARCODE_INFO is not in docs
-        $request = [
-            'METHOD' => 'PARK_TICKET_GET_INFO',
-            'ORDER_ID' => $this->getNextOrderId(),
-            'LOGIN_ID' => $this->loginId,
-            'BARCODE' => $barcode,
-            'DATE_FROM' => date('Y-m-d H:i:s'),
-            'DATE_TO' => date('Y-m-d H:i:s')
-        ];
-
-        $response = $this->sendRequest($request);
-
-        if ($response === false) {
-            return ['success' => false, 'error' => 'Błąd połączenia z API'];
-        }
-        $this->logger->log('getBarcodeInfo response: ' . json_encode($response));
+        $this->logger->log('getParkTicketInfo response: ' . json_encode($response));
 
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             // Check TICKET_EXIST flag
@@ -231,12 +196,12 @@ class ApiClient
             if ($ticketExist) {
                 // Map PARK_TICKET_GET_INFO response to expected 'tickets' structure
                 $ticketData = [
-                    'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode,
+                    'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode, // Prefer Registration Number if available
+                    'TICKET_ID' => $response['TICKET_ID'] ?? null,
                     'VALID_FROM' => $response['VALID_FROM'] ?? null,
                     'VALID_TO' => $response['VALID_TO'] ?? null,
                     'FEE' => $response['FEE'] ?? 0,
                     'STATUS' => 'active',
-                    // Include all other fields (FEE_TYPE, FEE_PAID, etc)
                     'FEE_TYPE' => $response['FEE_TYPE'] ?? null,
                     'FEE_STARTS_TYPE' => $response['FEE_STARTS_TYPE'] ?? null,
                     'FEE_MULTI_DAY' => $response['FEE_MULTI_DAY'] ?? null,

@@ -62,7 +62,7 @@ if ($action === 'create') {
             throw new Exception("Błąd logowania do API: " . ($loginResult['error'] ?? 'Nieznany'));
         }
 
-        $info = $client->getBarcodeInfo($plate);
+        $info = $client->getParkTicketInfo($plate, date('Y-m-d H:i:s', strtotime('-1 year')), date('Y-m-d H:i:s', strtotime('+1 day')));
 
 
         if ($info['success']) {
@@ -132,7 +132,7 @@ if ($action === 'calculate_fee') {
         if (!empty($config['api']['api_url'])) {
             $client = new ApiClient($config);
             if ($client->login()['success']) {
-                $info = $client->getBarcodeInfo($ticket_id);
+                $info = $client->getParkTicketInfo($ticket_id, date('Y-m-d H:i:s', strtotime('-1 year')), date('Y-m-d H:i:s', strtotime('+1 day')));
                 if ($info['success'] && !empty($info['tickets'])) {
                     $apiData = $info['tickets'][0];
                     $ticket = [
@@ -146,10 +146,12 @@ if ($action === 'calculate_fee') {
         }
 
         if (!$ticket) {
-            // http_response_code(404);
-            http_response_code(200);
-            echo json_encode(['success' => false, 'message' => 'Bilet nie został znaleziony']);
-            exit;
+            // Treat as new session if not found
+            $ticket = [
+                'plate' => $ticket_id,
+                'entry_time' => date('Y-m-d H:i:s'), // Default to NOW for new sessions
+                'status' => 'new'
+            ];
         }
 
         // Jeśli bilet już opłacony? API nie zwraca 'paid'.
@@ -174,23 +176,14 @@ if ($action === 'calculate_fee') {
         if (!empty($config['api']['api_url'])) {
             $client = new ApiClient($config);
             if ($client->login()['success']) {
-                $feeInfo = $client->getParkingFee($ticket['plate'], $calculationDate);
+                $feeInfo = $client->getParkTicketInfo($ticket['plate'], $ticket['entry_time'], $calculationDate);
 
                 if ($feeInfo['success']) {
                     // API zwraca kwotę w groszach? Dokumentacja mówi: FEE :int64. Zazwyczaj to grosze.
-                    // Sprawdźmy konwencję. rate = 5.00. Jeśli user płaci 5 PLN, a API zwraca np 500, to grosze.
-                    // Ale format w config to 5.00. 
-                    // Jeśli API zwraca "5" jako int dla 5zł?
-                    // Bez pewności, załóżmy że to jednostki główne LUB grosze.
-                    // Standardem w takich systemach są grosze.
-                    // Jednak w configu mamy hourly_rate=5.00 (float).
-                    // Najbezpieczniej wyświetlić to co przyjdzie, ewentualnie podzielić przez 100 jeśli to grosze.
-                    // W api.md: FEE :int64 "aktualna oplata".
-                    // Zazwyczaj int64 oznacza grosze. 
-                    // Przyjmijmy że dzielimy przez 100.
 
-                    $rawFee = $feeInfo['data']['FEE'] ?? 0;
-                    $paidFee = $feeInfo['data']['FEE_PAID'] ?? 0;
+                    $ticketData = $feeInfo['tickets'][0] ?? [];
+                    $rawFee = $ticketData['FEE'] ?? 0;
+                    $paidFee = $ticketData['FEE_PAID'] ?? 0;
                     $toPay = $rawFee - $paidFee;
 
                     // Czy dzielić przez 100?
@@ -200,7 +193,7 @@ if ($action === 'calculate_fee') {
                     $fee = $toPay / 100.0;
 
                     // Czas trwania - obliczamy lokalnie dla UI, bo API nie zwraca 'duration' wprost, tylko daty.
-                    $validFrom = new DateTime($feeInfo['data']['VALID_FROM'] ?? $ticket['entry_time']);
+                    $validFrom = new DateTime($ticketData['VALID_FROM'] ?? $ticket['entry_time']);
                     $interval = $validFrom->diff($current_time);
                     $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
                 } else {
@@ -240,7 +233,7 @@ $ticket = null;
 if (!empty($config['api']['api_url'])) {
     $client = new ApiClient($config);
     if ($client->login()['success']) {
-        $info = $client->getBarcodeInfo($ticket_id);
+        $info = $client->getParkTicketInfo($ticket_id, date('Y-m-d H:i:s', strtotime('-1 year')), date('Y-m-d H:i:s', strtotime('+1 day')));
         if ($info['success'] && !empty($info['tickets'])) {
             $ticket = ['status' => 'active']; // Found on API
         }

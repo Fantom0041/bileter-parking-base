@@ -5,6 +5,8 @@ $config = parse_ini_file('config.ini', true);
 
 // 2. Setup API
 require_once 'ApiClient.php';
+require_once 'Logger.php';
+$logger = new Logger();
 
 // 3. Get Ticket ID
 $ticket_id = $_GET['ticket_id'] ?? null;
@@ -16,8 +18,9 @@ $error = null;
 
 // 4. Validate Ticket via API
 $is_simulated = isset($_GET['simulated']) && $_GET['simulated'] == '1';
-
+$logger->log("is_simulated: " . $is_simulated);
 if ($ticket_id) {
+  $logger->log("ticket_id: " . $ticket_id);
   if ($is_simulated) {
     // Create Mock Ticket for simulation
     $ticket = [
@@ -31,11 +34,14 @@ if ($ticket_id) {
     try {
       $client = new ApiClient($config);
       $loginResult = $client->login();
+      $logger->log("loginResult: " . json_encode($loginResult));
       if ($loginResult['success']) {
-        $info = $client->getBarcodeInfo($ticket_id);
+        $info = $client->getParkTicketInfo($ticket_id);
+        $logger->log("info: " . json_encode($info));
         if ($info['success']) {
           if (!empty($info['tickets'])) {
             $apiData = $info['tickets'][0]; // Take the first active ticket
+            $logger->log("API Data: " . $apiData);
             $ticket = [
               'plate' => $apiData['BARCODE'] ?? $ticket_id,
               'entry_time' => $apiData['VALID_FROM'],

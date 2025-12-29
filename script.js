@@ -512,8 +512,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 exitTimeBtn.style.opacity = '0.5';
                 exitTimeBtn.style.pointerEvents = 'none';
             }
-            if (exitDateBtn) {
-                exitDateBtn.classList.add('active'); // Force Date active
+            // Logic addition: If Daily + Single Day, disable Date too?
+            // "jak mamy type fee dzienna i fee multi 0 oznacza ze nie mozemy nic zmieniac"
+            if (currentDurationMode === 'single_day') {
+                 if (exitDateBtn) {
+                    exitDateBtn.classList.remove('active');
+                    exitDateBtn.style.opacity = '0.5';
+                    exitDateBtn.style.pointerEvents = 'none';
+                 }
+            } else {
+                 if (exitDateBtn) {
+                    exitDateBtn.classList.add('active'); // Force Date active for Daily+Multi
+                 }
             }
         } else {
             // Reset Time button state
@@ -542,24 +552,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Fee Multi (Multi Day) Constraint: Disable Date, Allow Time
-        // User request: "fee multi nie moge zmienic daty koncowej no moge zmienic godziny"
-        // This overrides general multi_day behavior if strictly requested for this mode.
-        // Assuming "Fee Multi" equates to duration_mode === 'multi_day'.
-        if (currentDurationMode === 'multi_day') {
-             if (exitDateBtn) {
-                exitDateBtn.classList.remove('active');
-                exitDateBtn.style.opacity = '0.5';
-                exitDateBtn.style.pointerEvents = 'none';
-            }
-            if (exitTimeBtn) {
-                exitTimeBtn.classList.add('active'); // Force Time active
-                exitTimeBtn.style.opacity = '1';
-                exitTimeBtn.style.pointerEvents = 'auto';
-                
-                // Force logic to respect Time unit
-                currentUnit = 'minutes';
-            }
-        }
+        // REFACTOR: Removed "fee multi nie moge zmienic daty" restriction to allow Hourly + Multi Day editing.
+        // We now rely on 'currentTimeMode === daily' to disable time, and 'duration_mode === single_day' to disable date.
+        // If it's Hourly + Multi Day, both should be enabled.
+
 
 
         // Enable/disable spinner
