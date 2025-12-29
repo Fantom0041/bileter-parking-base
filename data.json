@@ -136,5 +136,17 @@
         "plate": "KRA222",
         "entry_time": "2025-12-15 12:40:06",
         "status": "active"
+    },
+    "68277": {
+        "plate": "KRA222",
+        "entry_time": "2025-12-15 12:46:34",
+        "status": "paid",
+        "payment_time": "2025-12-15 14:25:57",
+        "amount_paid": 10
+    },
+    "22298": {
+        "plate": "KRA444",
+        "entry_time": "2025-12-15 14:26:18",
+        "status": "active"
     }
 }

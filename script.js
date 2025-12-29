@@ -541,6 +541,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Fee Multi (Multi Day) Constraint: Disable Date, Allow Time
+        // User request: "fee multi nie moge zmienic daty koncowej no moge zmienic godziny"
+        // This overrides general multi_day behavior if strictly requested for this mode.
+        // Assuming "Fee Multi" equates to duration_mode === 'multi_day'.
+        if (currentDurationMode === 'multi_day') {
+             if (exitDateBtn) {
+                exitDateBtn.classList.remove('active');
+                exitDateBtn.style.opacity = '0.5';
+                exitDateBtn.style.pointerEvents = 'none';
+            }
+            if (exitTimeBtn) {
+                exitTimeBtn.classList.add('active'); // Force Time active
+                exitTimeBtn.style.opacity = '1';
+                exitTimeBtn.style.pointerEvents = 'auto';
+                
+                // Force logic to respect Time unit
+                currentUnit = 'minutes';
+            }
+        }
+
 
         // Enable/disable spinner
         setSliderState(isEditable);

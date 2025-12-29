@@ -24,6 +24,7 @@ if ($ticket_id) {
       'plate' => $ticket_id,
       'entry_time' => date('Y-m-d H:i:s'), // Start now
       'status' => 'active',
+      'is_new' => true, // Simulation: assume new
       'api_data' => []
     ];
   } else if (!empty($config['api']['api_url'])) {
@@ -39,6 +40,7 @@ if ($ticket_id) {
               'plate' => $apiData['BARCODE'] ?? $ticket_id,
               'entry_time' => $apiData['VALID_FROM'],
               'status' => 'active',
+              'is_new' => false, // Found in DB -> Existing
               'api_data' => $apiData
             ];
           } elseif (isset($info['is_new']) && $info['is_new']) {
@@ -47,6 +49,7 @@ if ($ticket_id) {
               'plate' => $ticket_id,
               'entry_time' => date('Y-m-d H:i:s'), // Default to now
               'status' => 'active',
+              'is_new' => true, // Flag as new
               'api_data' => $info['defaults'] ?? [] // Use defaults if available
             ];
           } else {
@@ -275,7 +278,7 @@ if ($ticket) {
 
     <!-- Status / Payment Info -->
     <section class="status-section">
-      <div class="payment-info-card">
+      <div class="payment-info-card" <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'style="display:none;"' : ''; ?>>
         <?php
         $feePaid = 0.00;
         $validTo = null;
@@ -346,6 +349,18 @@ if ($ticket) {
       </button>
     </footer>
 
+
+    <!-- Disabled Overlay for Fee Type 0 -->
+    <?php if (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == '0'): ?>
+    <style>
+      /* Hide/Disable edit buttons for Fee Type 0 */
+      #editPlateBtn, #editEntryBtn, #editExitBtnCollapsed, .edit-icon {
+        display: none !important;
+      }
+      /* Optional: indicate read-only state */
+    </style>
+    <?php endif; ?>
+
     <!-- Success Overlay (Hidden) -->
     <div class="success-overlay" id="successOverlay">
       <div class="success-content">
@@ -384,7 +399,10 @@ if ($ticket) {
     const API_SETTINGS = {
       time_mode: <?php
       if (isset($ticket['api_data']['FEE_TYPE'])) {
-        echo $ticket['api_data']['FEE_TYPE'] == 1 ? "'daily'" : "'hourly'";
+        // Warning: PHP '0' string vs int check.
+        // User said: fee type '0' is daily. 1 is presumably hourly/other.
+        // If type is 0, we want to enforce restrictions.
+        echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "daily" : "hourly") . "'";
       } else {
         echo "'" . ($config['parking_modes']['time_mode'] ?? 'hourly') . "'";
       }
@@ -402,7 +420,9 @@ if ($ticket) {
       } else {
         echo "'" . ($config['parking_modes']['day_counting'] ?? 'from_entry') . "'";
       }
-      ?>
+      ?>,
+      fee_type_raw: <?php echo isset($ticket['api_data']['FEE_TYPE']) ? $ticket['api_data']['FEE_TYPE'] : 'null'; ?>,
+      is_new: <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'true' : 'false'; ?>
     };
 
     // Override local config with API settings for logic
@@ -437,9 +457,9 @@ if ($ticket) {
     const IS_EDITABLE_START = IS_PRE_BOOKING;
 
     // Parking modes configuration
-    const TIME_MODE = "<?php echo $config['parking_modes']['time_mode'] ?? 'daily'; ?>"; // daily or hourly
-    const DURATION_MODE = "<?php echo $config['parking_modes']['duration_mode'] ?? 'multi_day'; ?>"; // single_day or multi_day
-    const DAY_COUNTING = "<?php echo $config['parking_modes']['day_counting'] ?? 'from_entry'; ?>"; // from_entry or from_midnight
+    const TIME_MODE = API_SETTINGS.time_mode; // daily or hourly
+    const DURATION_MODE = API_SETTINGS.duration_mode; // single_day or multi_day
+    const DAY_COUNTING = API_SETTINGS.day_counting; // from_entry or from_midnight
   </script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>

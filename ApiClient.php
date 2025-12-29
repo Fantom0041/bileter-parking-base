@@ -3,34 +3,39 @@
 /**
  * Klasa do komunikacji z zewnętrznym API systemu biletowego
  */
-class ApiClient {
+class ApiClient
+{
     private $apiUrl;
     private $config;
     private $loginId = null;
     private $orderIdCounter = 1;
+    private $logger;
 
-    public function __construct($config) {
+    public function __construct($config, $logger = null)
+    {
         $this->config = $config;
         $this->apiUrl = $config['api']['api_url'];
+        $this->logger = $logger;
     }
 
     /**
      * Logowanie do systemu API
      * @return array ['success' => bool, 'login_id' => string, 'user' => array, 'error' => string]
      */
-    public function login() {
+    public function login()
+    {
         $login = $this->config['api']['api_login'];
         $pin = $this->config['api']['api_pin'];
         $password = $this->config['api']['api_password'];
-        $deviceId = (int)$this->config['api']['device_id'];
+        $deviceId = (int) $this->config['api']['device_id'];
         $deviceIp = $this->config['api']['device_ip'];
-        $entityId = (int)$this->config['api']['entity_id'];
+        $entityId = (int) $this->config['api']['entity_id'];
 
-     
+
         $request = [
             'METHOD' => 'LOGIN',
             'ORDER_ID' => $this->getNextOrderId(),
-            'LOGIN_ID' => '', 
+            'LOGIN_ID' => '',
             'LOGIN' => $login,
             'PIN' => $pin,
             'PASSWORD' => !empty($password) ? sha1($password) : '',
@@ -52,9 +57,9 @@ class ApiClient {
 
         // Sprawdź status odpowiedzi
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
-           
+
             $this->loginId = $response['LOGIN_ID'];
-            
+
             return [
                 'success' => true,
                 'login_id' => $response['LOGIN_ID'],
@@ -73,7 +78,8 @@ class ApiClient {
      * Podtrzymanie połączenia (HEART_BEAT)
      * @return array ['success' => bool, 'error' => string]
      */
-    public function heartBeat() {
+    public function heartBeat()
+    {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];
         }
@@ -104,7 +110,8 @@ class ApiClient {
      * Wylogowanie z systemu
      * @return array ['success' => bool, 'error' => string]
      */
-    public function logout() {
+    public function logout()
+    {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];
         }
@@ -149,7 +156,8 @@ class ApiClient {
      * @param string $date Data rozliczenia (Y-m-d H:i:s)
      * @return array
      */
-    public function getParkingFee($barcode, $date) {
+    public function getParkingFee($barcode, $date)
+    {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];
         }
@@ -192,7 +200,8 @@ class ApiClient {
      * @param string $barcode Kod kreskowy/numer karty
      * @return array ['success' => bool, 'tickets' => array, 'lockers' => array, 'error' => string]
      */
-    public function getBarcodeInfo($barcode) {
+    public function getBarcodeInfo($barcode)
+    {
         if (!$this->loginId) {
             return ['success' => false, 'error' => 'Nie zalogowano'];
         }
@@ -203,7 +212,7 @@ class ApiClient {
             'ORDER_ID' => $this->getNextOrderId(),
             'LOGIN_ID' => $this->loginId,
             'BARCODE' => $barcode,
-            'DATE_FROM' => date('Y-m-d H:i:s'), 
+            'DATE_FROM' => date('Y-m-d H:i:s'),
             'DATE_TO' => date('Y-m-d H:i:s')
         ];
 
@@ -234,11 +243,11 @@ class ApiClient {
                 ];
                 return [
                     'success' => true,
-                    'tickets' => [$ticketData], 
+                    'tickets' => [$ticketData],
                     'lockers' => $response['LOCKERS'] ?? []
                 ];
             } else {
-                 return [
+                return [
                     'success' => true,
                     'tickets' => [], // Empty = Not found (so api.php will handle as New)
                     'lockers' => [],
@@ -252,9 +261,9 @@ class ApiClient {
             // returns Error -3 instead of success with TICKET_EXIST=0.
             // We treat -3 as "Ticket Not Found" -> New Session.
             if (($response['STATUS'] ?? -999) == -3) {
-                 return [
+                return [
                     'success' => true,
-                    'tickets' => [], 
+                    'tickets' => [],
                     'lockers' => [],
                     'is_new' => true,
                     'defaults' => null // No defaults available from error response
@@ -270,60 +279,78 @@ class ApiClient {
     }
 
     /**
-     
+
      * @param array $data Dane żądania
      * @return array|false Odpowiedź z API lub false w przypadku błędu
      */
-    private function sendRequest($data) {
+    private function sendRequest($data)
+    {
         // Parsuj URL aby wyciągnąć host i port
         $urlParts = parse_url($this->apiUrl);
         $host = $urlParts['host'] ?? 'localhost';
         $port = $urlParts['port'] ?? 80;
-        
+
         $jsonRequest = json_encode($data);
-        
-      
+
+        if ($this->logger) {
+            $this->logger->logApi('EXTERNAL_REQUEST', $this->apiUrl, $data);
+        }
+
         $socket = @fsockopen($host, $port, $errno, $errstr, 10);
-        
+
         if (!$socket) {
             error_log("API Socket Error: $errstr ($errno)");
+            if ($this->logger) {
+                $this->logger->log("API Socket Error: $errstr ($errno)", 'ERROR');
+            }
             return false;
         }
-        
+
         // Wyślij żądanie JSON + nowa linia
         fwrite($socket, $jsonRequest . "\n");
-        
+
         // Ustaw timeout na odczyt
         stream_set_timeout($socket, 10);
-        
+
         // Odczytaj odpowiedź
         $response = '';
         while (!feof($socket)) {
             $line = fgets($socket, 4096);
-            if ($line === false) break;
+            if ($line === false)
+                break;
             $response .= $line;
-            
+
             // Jeśli mamy kompletny JSON, przerwij
             $decoded = json_decode($response, true);
             if ($decoded !== null) {
                 break;
             }
         }
-        
+
         fclose($socket);
-        
+
         if (empty($response)) {
             error_log("API Error: Empty response");
+            if ($this->logger) {
+                $this->logger->log("API Error: Empty response", 'ERROR');
+            }
             return false;
         }
-        
+
         $decoded = json_decode($response, true);
-        
+
+        if ($this->logger) {
+            $this->logger->logApi('EXTERNAL_RESPONSE', $this->apiUrl, $decoded ?? $response);
+        }
+
         if ($decoded === null) {
             error_log("API Error: Invalid JSON response: " . $response);
+            if ($this->logger) {
+                $this->logger->log("API Error: Invalid JSON response: " . $response, 'ERROR');
+            }
             return false;
         }
-        
+
         return $decoded;
     }
 
@@ -331,7 +358,8 @@ class ApiClient {
      * Pobierz następny numer rozkazu
      * @return int
      */
-    private function getNextOrderId() {
+    private function getNextOrderId()
+    {
         return $this->orderIdCounter++;
     }
 
@@ -340,7 +368,8 @@ class ApiClient {
      * @param int $status Kod statusu
      * @return string Komunikat błędu
      */
-    private function getErrorMessage($status) {
+    private function getErrorMessage($status)
+    {
         $errors = [
             -1000 => 'Błąd bazy danych',
             -13 => 'Użytkownik nieautoryzowany',
@@ -373,7 +402,8 @@ class ApiClient {
      * Sprawdź czy zalogowano
      * @return bool
      */
-    public function isLoggedIn() {
+    public function isLoggedIn()
+    {
         return $this->loginId !== null;
     }
 
@@ -381,7 +411,8 @@ class ApiClient {
      * Pobierz LOGIN_ID
      * @return string|null
      */
-    public function getLoginId() {
+    public function getLoginId()
+    {
         return $this->loginId;
     }
 }
