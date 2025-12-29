@@ -139,10 +139,11 @@ if ($ticket) {
     <!-- Header -->
     <header class="app-header">
       <div class="header-top">
-        <div class="brand-logo">P</div>
-
-        <!-- Regulamin Link -->
-        <a href="regulamin.php" class="regulations-link">Regulamin</a>
+        <div class="header-left">
+          <div class="brand-logo">P</div>
+          <!-- Regulamin Link -->
+          <a href="regulamin.php" class="regulations-link">Regulamin</a>
+        </div>
 
         <!-- Client Logo -->
         <div style="display: flex; align-items: center;">
@@ -200,7 +201,7 @@ if ($ticket) {
 
     <!-- Details Grid -->
     <section class="details-section">
-      <div class="info-card-full">
+      <div class="info-card-full" style="padding-right: 50px;">
         <span class="label">Strefa</span>
         <span class="value"><?php echo htmlspecialchars($config['settings']['station_id']); ?></span>
       </div>
@@ -341,8 +342,7 @@ if ($ticket) {
       </div>
     </section>
     <!-- Footer -->
-    <!-- Footer -->
-    <?php include 'footer.php'; ?>
+
 
 
 
@@ -353,6 +353,7 @@ if ($ticket) {
       <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
         <?php echo $fee > 0 ? 'Zapłać ' . number_format($fee, 2) . ' ' . $config['settings']['currency'] : 'Wyjazd bez opłaty'; ?>
       </button>
+      <?php include 'footer.php'; ?>
     </footer>
 
 

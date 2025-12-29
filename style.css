@@ -66,6 +66,12 @@ body {
     /* Context for absolute positioning if needed, or flex */
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* Regulations Link */
 /* Regulations Link */
 .regulations-link {

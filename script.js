@@ -187,8 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entryCollapsed) entryCollapsed.style.display = 'flex';
         if (entryExpanded) entryExpanded.style.display = 'none';
 
-        // Check if we're in special mode: daily + single_day + from_entry
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+        // Check if we're in special mode: daily + single_day (FEE_TYPE=0, FEE_MULTI_DAY=0)
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
             // Show collapsed Stop, hide expanded Stop
             if (exitCollapsed) exitCollapsed.style.display = 'block';
             if (exitExpanded) exitExpanded.style.display = 'none';
@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Animate sections that are being shown
         animateSection(entryCollapsed);
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
             animateSection(exitCollapsed);
         } else {
             animateSection(exitExpanded);
@@ -463,8 +463,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const exitExpanded = document.getElementById('exitExpanded');
         const exitCollapsed = document.getElementById('exitCollapsed');
 
-        // Special case: Daily + Single Day + From Entry = Hide expanded Stop, show collapsed (non-editable)
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+        // Special case: Daily + Single Day (FEE_TYPE=0, FEE_MULTI_DAY=0) = Hide expanded Stop, show collapsed (non-editable)
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
             // Hide expanded exit section
             if (exitExpanded) exitExpanded.style.display = 'none';
 
@@ -561,8 +561,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Enable/disable spinner
         setSliderState(isEditable);
 
-        // Hide spinner completely in daily + single_day + from_entry mode (time is fixed)
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry') {
+        // Hide spinner completely in daily + single_day mode (FEE_TYPE=0, FEE_MULTI_DAY=0) - time is fixed
+        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
             if (spinnerContainer) {
                 spinnerContainer.style.display = 'none';
             }
