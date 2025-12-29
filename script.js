@@ -589,8 +589,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate end time for single_day modes
         if (currentDurationMode === 'single_day') {
-            // For daily + single_day + from_entry, calculate fee to end of day
-            if (currentTimeMode === 'daily' && currentDayCounting === 'from_entry') {
+            // For daily + single_day (any day_counting), calculate fee once - time is fixed
+            if (currentTimeMode === 'daily') {
                 const entryTime = new Date(ENTRY_TIME);
                 const endOfDay = new Date(entryTime);
                 endOfDay.setHours(23, 59, 59, 999);
@@ -972,15 +972,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Set loading state immediately (USING SCRIPT.JS LOGIC WITH SAFEGUARD)
-        // Don't set loading state in daily + single_day + from_entry mode (fee is calculated in initializeUI)
-        if (!(currentTimeMode === 'daily' && currentDurationMode === 'single_day' && currentDayCounting === 'from_entry')) {
+        // Don't set loading state in daily + single_day mode (fee is calculated once in initializeUI)
+        if (!(currentTimeMode === 'daily' && currentDurationMode === 'single_day')) {
             setLoadingState();
-        }
 
-        // Set new debounce timer (1000ms)
-        debounceTimer = setTimeout(() => {
-            fetchCalculatedFee(addedMinutes);
-        }, 1000);
+            // Set new debounce timer (1000ms)
+            debounceTimer = setTimeout(() => {
+                fetchCalculatedFee(addedMinutes);
+            }, 1000);
+        }
     }
 
     // Update exit time display fields
@@ -1024,7 +1024,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     action: 'calculate_fee',
                     ticket_id: TICKET_ID,
-                    extension_minutes: extensionMinutes
+                    extension_minutes: extensionMinutes,
+                    entry_time: ENTRY_TIME
                 })
             });
 

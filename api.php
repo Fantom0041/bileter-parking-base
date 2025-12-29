@@ -158,12 +158,14 @@ if ($action === 'calculate_fee') {
         // Zakładamy, że jest do opłacenia.
 
         // Oblicz czas wyjazdu
-        $entry_time = new DateTime($ticket['entry_time']);
-        $current_time = new DateTime();
+        $entry_time_str = $input['entry_time'] ?? $ticket['entry_time'];
+        $entry_time = new DateTime($entry_time_str);
+
+        $calculationTime = clone $entry_time;
         if ($extension_minutes > 0) {
-            $current_time->modify("+{$extension_minutes} minutes");
+            $calculationTime->modify("+{$extension_minutes} minutes");
         }
-        $calculationDate = $current_time->format('Y-m-d H:i:s');
+        $calculationDate = $calculationTime->format('Y-m-d H:i:s');
 
         // Zamiast liczyć lokalnie, pytamy API o kwotę na dany moment wyjazdu
         $fee = 0;
@@ -176,12 +178,14 @@ if ($action === 'calculate_fee') {
         if (!empty($config['api']['api_url'])) {
             $client = new ApiClient($config);
             if ($client->login()['success']) {
-                $feeInfo = $client->getParkTicketInfo($ticket['plate'], $ticket['entry_time'], $calculationDate);
+                $feeInfo = $client->getParkTicketInfo($ticket['plate'], $entry_time->format('Y-m-d H:i:s'), $calculationDate);
+                error_log("Fee Calc Debug: plate={$ticket['plate']}, DATE_FROM={$entry_time->format('Y-m-d H:i:s')}, DATE_TO={$calculationDate}, ext_mins={$extension_minutes}");
 
                 if ($feeInfo['success']) {
                     // API zwraca kwotę w groszach? Dokumentacja mówi: FEE :int64. Zazwyczaj to grosze.
 
-                    $ticketData = $feeInfo['tickets'][0] ?? [];
+                    // Try tickets array first, fall back to defaults (when TICKET_EXIST=0)
+                    $ticketData = $feeInfo['tickets'][0] ?? $feeInfo['defaults'] ?? [];
                     $rawFee = $ticketData['FEE'] ?? 0;
                     $paidFee = $ticketData['FEE_PAID'] ?? 0;
                     $toPay = $rawFee - $paidFee;
@@ -193,8 +197,8 @@ if ($action === 'calculate_fee') {
                     $fee = $toPay / 100.0;
 
                     // Czas trwania - obliczamy lokalnie dla UI, bo API nie zwraca 'duration' wprost, tylko daty.
-                    $validFrom = new DateTime($ticketData['VALID_FROM'] ?? $ticket['entry_time']);
-                    $interval = $validFrom->diff($current_time);
+                    $validFrom = new DateTime($ticketData['VALID_FROM'] ?? $entry_time->format('Y-m-d H:i:s'));
+                    $interval = $validFrom->diff($calculationTime);
                     $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
                 } else {
                     // Fallback albo błąd

@@ -184,6 +184,9 @@ class ApiClient
 
         $response = $this->sendRequest($request);
 
+        $this->logger->log('getParkTicketInfo request: ' . json_encode($request));
+        $this->logger->log('getParkTicketInfo response: ' . json_encode($response));
+
         if ($response === false) {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }

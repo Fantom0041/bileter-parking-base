@@ -56,8 +56,8 @@ Każda odpowiedź musi zawierać te pola:
 ### Definicje typów (Enums)
 
 **[typ oplaty parkingowej]**
-* `0` - godzinowa
-* `1` - dzienna
+* `0` - dzienna
+* `1` - godzinowa
 
 **[typ naliczania oplaty parkingowej]**
 * `0` - 24h od wjazdu

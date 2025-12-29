@@ -357,7 +357,7 @@ if ($ticket) {
 
 
     <!-- Disabled Overlay for Fee Type 1 (Daily) -->
-    <?php if (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == '1'): ?>
+    <?php if (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == '0'): ?>
       <style>
         /* Hide/Disable edit buttons for Fee Type 0 */
         #editPlateBtn,
@@ -399,19 +399,19 @@ if ($ticket) {
     const HOURLY_RATE = <?php echo $config['settings']['hourly_rate']; ?>;
 
     // Map API settings to JS Config
-    // FEE_TYPE: 0 = hourly, 1 = daily
+    // FEE_TYPE: 0 = daily, 1 = hourly
     // FEE_STARTS_TYPE: 0 = 24h from entry, 1 = from midnight
     // FEE_MULTI_DAY: 0 = single day (no), 1 = multi day (yes)
     // Map API settings to JS Config with Fallback to config.ini
-    // FEE_TYPE: 0 = hourly, 1 = daily
+    // FEE_TYPE: 0 = daily, 1 = hourly
     // FEE_STARTS_TYPE: 0 = 24h from entry, 1 = from midnight
     // FEE_MULTI_DAY: 0 = single day (no), 1 = multi day (yes)
     const API_SETTINGS = {
       time_mode: <?php
       if (isset($ticket['api_data']['FEE_TYPE'])) {
-        // User said: fee type '0' is hourly. 1 is daily.
-        // If type is 1 (daily), we might want to enforce restrictions.
-        echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "hourly" : "daily") . "'";
+        // FEE_TYPE: 0 = daily, 1 = hourly
+        // If type is 0 (daily), we might want to enforce restrictions.
+        echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "daily" : "hourly") . "'";
       } else {
         echo "'" . ($config['parking_modes']['time_mode'] ?? 'hourly') . "'";
       }
