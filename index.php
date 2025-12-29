@@ -314,7 +314,7 @@ if ($ticket) {
         <div class="payment-row">
           <div class="payment-col left">
             <span class="payment-label">Opłacono:</span>
-            <span class="payment-value"><?php echo number_format($feePaid, 2, '.', ''); ?></span>
+            <span class="payment-value" id="feePaidValue"><?php echo number_format($feePaid, 2, '.', ''); ?></span>
           </div>
           <div class="payment-col right">
             <!-- Only show 'Wyjazd do' if validTo is available and > validFrom -->
@@ -383,8 +383,6 @@ if ($ticket) {
         <h2>Płatność zakończona</h2>
         <div class="exit-ticket">
           <div class="qr-placeholder" id="qrCode"></div>
-          <p class="ticket-msg">Zeskanuj przy wyjeździe</p>
-          <p class="valid-until">Ważny przez 15 minut</p>
         </div>
         <button class="btn-secondary" onclick="location.reload()">Zamknij</button>
       </div>

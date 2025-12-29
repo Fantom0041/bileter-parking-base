@@ -1052,6 +1052,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 currentFee = data.fee;
                 updatePayButton();
+
+                // Show payment info card ONLY if TICKET_EXIST == 1
+                if (data.ticket_exist == 1) {
+                     const paymentInfoCard = document.querySelector('.payment-info-card');
+                     if (paymentInfoCard) {
+                         paymentInfoCard.style.display = ''; // Reset to default
+                     }
+                     // Update Fee Paid Value
+                     if (data.fee_paid !== undefined) {
+                         const feePaidValue = document.getElementById('feePaidValue');
+                         if (feePaidValue) {
+                             feePaidValue.innerText = parseFloat(data.fee_paid).toFixed(2);
+                         }
+                     }
+                     
+                     // Also check if we should populate "Wyjazd do" if it was empty?
+                     // data.duration_minutes is calculated, but API might have authoritative date.
+                     // The logic for 'Wyjazd do' is complex, mainly set by spinner/inputs.
+                     // But if the user didn't change anything, we might want to sync.
+                     // For now, user request focused on 'oplacono' component.
+                } else {
+                    const paymentInfoCard = document.querySelector('.payment-info-card');
+                    if (paymentInfoCard) {
+                        paymentInfoCard.style.display = 'none';
+                    }
+                }
             } else {
                 console.error('Fee calculation failed:', data.message);
                 // Reset to initial fee on error
@@ -1112,6 +1138,17 @@ document.addEventListener('DOMContentLoaded', () => {
         payButton.innerText = 'Przetwarzanie...';
         payButton.disabled = true;
 
+        // Helper to format date as YYYY-MM-DD HH:MM:SS
+        function formatDateTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const mins = String(date.getMinutes()).padStart(2, '0');
+            const secs = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+        }
+
         try {
             const response = await fetch('api.php', {
                 method: 'POST',
@@ -1119,8 +1156,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    action: 'pay',
                     ticket_id: TICKET_ID,
-                    amount: currentFee
+                    amount: currentFee,
+                    entry_time: ENTRY_TIME,
+                    exit_time: formatDateTime(currentExitTime)
                 })
             });
 
@@ -1141,7 +1181,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (data.success) {
-                qrCode.innerText = data.new_ticket_qr;
+                // Display Receipt Number if available, or fallback text
+                if (data.receipt_number) {
+                    qrCode.innerText = `PARAGON: ${data.receipt_number}`;
+                } else if (data.new_qr_code) {
+                    qrCode.innerText = data.new_qr_code;
+                } else {
+                    qrCode.innerText = "OPŁACONO";
+                }
+                
                 successOverlay.classList.add('visible');
                 paymentSheet.style.transform = 'translate(-50%, 100%)';
             } else {

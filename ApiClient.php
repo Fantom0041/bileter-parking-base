@@ -182,22 +182,22 @@ class ApiClient
             'DATE_TO' => $dateTo
         ];
 
-          $this->logger->log('getParkTicketInfo request ApiClient.php: ' . json_encode($request));
+        $this->logger->log('getParkTicketInfo request ApiClient.php: ' . json_encode($request));
 
         $response = $this->sendRequest($request);
 
-      
+
         $this->logger->log('getParkTicketInfo response ApiClient.php: ' . json_encode($response));
 
         if ($response === false) {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
-        
+
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             // Check TICKET_EXIST flag
             $ticketExist = isset($response['TICKET_EXIST']) && $response['TICKET_EXIST'] == 1;
             $this->logger->log('getParkTicketInfo ticketExist: ' . json_encode($ticketExist));
-           
+
             $ticketData = [
                 'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode, // Prefer Registration Number if available
                 'TICKET_ID' => $response['TICKET_ID'] ?? null,
@@ -239,6 +239,58 @@ class ApiClient
                 'success' => false,
                 'error' => $this->getErrorMessage($response['STATUS'] ?? -999),
                 'debug_request' => $request
+            ];
+        }
+    }
+
+    /**
+     * Rozliczenie biletu parkingowego
+     * @param string $barcode Numer rejestracyjny/biletu
+     * @param string $dateFrom Data start (Y-m-d H:i:s)
+     * @param string $dateTo Data stop (Y-m-d H:i:s)
+     * @param int $fee Opłata (int64 - grosze lub jednostki systemowe)
+     * @param string|null $taxId NIP (opcjonalnie)
+     * @return array ['success' => bool, 'receipt_number' => int|null, 'error' => string]
+     */
+    public function payParkTicket($barcode, $dateFrom, $dateTo, $fee, $taxId = null)
+    {
+        if (!$this->loginId) {
+            return ['success' => false, 'error' => 'Nie zalogowano'];
+        }
+
+        $request = [
+            'METHOD' => 'PARK_TICKET_PAY',
+            'ORDER_ID' => $this->getNextOrderId(),
+            'LOGIN_ID' => $this->loginId,
+            'BARCODE' => $barcode,
+            'DATE_FROM' => $dateFrom,
+            'DATE_TO' => $dateTo,
+            'FEE' => (int) $fee
+        ];
+
+        if ($taxId) {
+            $request['TAX_ID'] = $taxId;
+        }
+
+        $this->logger->log('payParkTicket request: ' . json_encode($request));
+
+        $response = $this->sendRequest($request);
+
+        $this->logger->log('payParkTicket response: ' . json_encode($response));
+
+        if ($response === false) {
+            return ['success' => false, 'error' => 'Błąd połączenia z API'];
+        }
+
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
+            return [
+                'success' => true,
+                'receipt_number' => $response['RECEIPT_NUMBER'] ?? null
+            ];
+        } else {
+            return [
+                'success' => false,
+                'error' => $this->getErrorMessage($response['STATUS'] ?? -999)
             ];
         }
     }
@@ -320,9 +372,7 @@ class ApiClient
         $port = $urlParts['port'] ?? 80;
 
         $jsonRequest = json_encode($data);
-
-      
-
+        file_put_contents('app.log', "[DEBUG] Connecting to: $host:$port\n", FILE_APPEND);
         $socket = @fsockopen($host, $port, $errno, $errstr, 10);
 
         if (!$socket) {
@@ -363,7 +413,7 @@ class ApiClient
 
         $decoded = json_decode($response, true);
 
-   
+
         if ($decoded === null) {
             $this->logError("API Error: Invalid JSON response: " . $response);
             return false;

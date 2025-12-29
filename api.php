@@ -129,7 +129,7 @@ if ($action === 'calculate_fee') {
         $extension_minutes = $input['extension_minutes'] ?? 0;
 
         $ticket = null;
-       
+
 
         if (!$ticket) {
             // Treat as new session if not found
@@ -201,7 +201,9 @@ if ($action === 'calculate_fee') {
             'success' => true,
             'fee' => $fee,
             'currency' => $config['settings']['currency'],
-            'duration_minutes' => $duration_minutes
+            'duration_minutes' => $duration_minutes,
+            'ticket_exist' => (int) ($ticketData['TICKET_EXIST'] ?? 0),
+            'fee_paid' => $paidFee / 100.0 // Return paid amount in standard units
         ]);
     } catch (Exception $e) {
         error_log("Error calculating fee: " . $e->getMessage());
@@ -215,40 +217,75 @@ if ($action === 'calculate_fee') {
 }
 
 // Opłacenie istniejącego biletu
-$ticket_id = $input['ticket_id'] ?? null;
-$amount = $input['amount'] ?? 0;
+if ($action === 'pay') {
+    $ticket_id = $input['ticket_id'] ?? null;
+    $amount = $input['amount'] ?? 0;
 
-// 3. Walidacja
-$ticket = null;
-if (!empty($config['api']['api_url'])) {
-    $client = new ApiClient($config);
-    if ($client->login()['success']) {
-        $info = $client->getParkTicketInfo($ticket_id, date('Y-m-d H:i:s', strtotime('-1 year')), date('Y-m-d H:i:s', strtotime('+1 day')));
-        if ($info['success'] && !empty($info['tickets'])) {
-            $ticket = ['status' => 'active']; // Found on API
+    // Retrieve required dates from request (passed from frontend script.js)
+    $entry_time_str = $input['entry_time'] ?? date('Y-m-d H:i:s'); // Fallback to NOW if missing (shouldn't happen)
+    $exit_time_str = $input['exit_time'] ?? date('Y-m-d H:i:s');
+
+    if (!$ticket_id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Brak numeru biletu']);
+        exit;
+    }
+
+    try {
+        if (empty($config['api']['api_url'])) {
+            throw new Exception("Brak konfiguracji API");
         }
 
-    }
-}
+        $client = new ApiClient($config);
+        $loginResult = $client->login();
 
-if (!$ticket) {
-    // http_response_code(404);
-    http_response_code(200);
-    echo json_encode(['success' => false, 'message' => 'Bilet nie został znaleziony']);
+        if (!$loginResult['success']) {
+            throw new Exception("Błąd logowania do API: " . ($loginResult['error'] ?? 'Nieznany'));
+        }
+
+        // 1. Fetch Ticket Info first to get the authoritative FEE (int64) from the backend
+        // We use the exact dates provided by the frontend (Entry + User Selected Exit)
+        $info = $client->getParkTicketInfo($ticket_id, $entry_time_str, $exit_time_str);
+
+        if (!$info['success']) {
+            throw new Exception("Błąd pobierania danych biletu: " . ($info['error'] ?? 'Nieznany'));
+        }
+
+        // Extract FEE from response. 
+        // If TICKET_EXIST is 0 (new session), we might use defaults or 0 if API logic dictates.
+        // Assuming PARK_TICKET_GET_INFO returns the calculated FEE for the given time range.
+        $ticketData = $info['tickets'][0] ?? $info['defaults'] ?? [];
+
+        // Safety check: Ensure we have a fee
+        if (!isset($ticketData['FEE'])) {
+            // If checking a new plate that doesn't exist yet, FEE might be 0 or determined by backend.
+            // If the user expects to pay amount > 0 but API says 0, we might have a sync issue.
+            // However, we trust the API's calculation for the payment call.
+            $feeInt = 0;
+        } else {
+            $feeInt = (int) $ticketData['FEE'];
+        }
+
+        // 2. Perform Payment
+        $payResult = $client->payParkTicket($ticket_id, $entry_time_str, $exit_time_str, $feeInt);
+
+        if ($payResult['success']) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Płatność zakończona powodzeniem',
+                'receipt_number' => $payResult['receipt_number'],
+                'new_qr_code' => "REC-" . ($payResult['receipt_number'] ?? uniqid()), // Fallback for UI
+                'valid_until' => date('H:i', strtotime('+15 minutes'))
+            ]);
+        } else {
+            throw new Exception("Błąd płatności: " . ($payResult['error'] ?? 'Nieznany błąd API'));
+        }
+
+    } catch (Exception $e) {
+        error_log("Payment Error: " . $e->getMessage());
+        http_response_code(200); // Allow frontend to handle error message
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
     exit;
 }
-
-// 4. Przetworzenie płatności
-// W trybie API-only, jeśli nie mamy metody "oznacz jako opłacony" w API, 
-// jedynie symulujemy sukces dla UI.
-
-// 5. Wygenerowanie „biletu wyjazdowego” (symulowany kod QR lub dane z API jeśli by były)
-$new_qr_code = "EXIT-" . strtoupper(uniqid());
-
-echo json_encode([
-    'success' => true,
-    'message' => 'Płatność zakończona powodzeniem',
-    'new_qr_code' => $new_qr_code,
-    'valid_until' => date('H:i', strtotime('+15 minutes'))
-]);
 ?>

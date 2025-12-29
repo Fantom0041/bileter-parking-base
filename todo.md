@@ -1,10 +1,2 @@
+exit 0 to 'oplacono' ma nie byc component
 
-2. 
-
-data do kiedy oplacono data po prawej
-kwota za ktora oplaciles
-gdy system zwroci nowa platnosc exist:0 ma sie nie wyswietlac component 'oplacono'
-exist 1 ma sie wyswietlac component 'oplacono' z data i suma
-
-fee multi nie moge zmienic daty koncowej no moge zmienic godziny
-ale mamy fee type '0' to dzienny, nie mozemy nic . wysszerzony przycisk 'zmien' 
