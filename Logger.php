@@ -23,7 +23,9 @@ class Logger
     @file_put_contents($this->logFile, $formattedMessage, FILE_APPEND);
 
     // Write to console (stderr)
-    fwrite(STDERR, $formattedMessage);
+    // Write to console (stderr)
+    // Write to console (stderr)
+    error_log(trim($formattedMessage));
   }
 
   public function logApi($direction, $endpoint, $data)

@@ -59,7 +59,7 @@ if ($ticket_id) {
         } else {
           $error = "Bilet nie znaleziony w systemie (Błąd API).";
         }
-        $client->logout();
+
       } else {
         $error = "Błąd komunikacji z systemem parkingowym (Login): " . ($loginResult['error'] ?? 'Nieznany błąd');
       }
@@ -134,7 +134,7 @@ if ($ticket) {
     <header class="app-header">
       <div class="header-top">
         <div class="brand-logo">P</div>
-        
+
         <!-- Regulamin Link -->
         <a href="regulamin.php" class="regulations-link">Regulamin</a>
 
@@ -350,15 +350,19 @@ if ($ticket) {
     </footer>
 
 
-    <!-- Disabled Overlay for Fee Type 0 -->
-    <?php if (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == '0'): ?>
-    <style>
-      /* Hide/Disable edit buttons for Fee Type 0 */
-      #editPlateBtn, #editEntryBtn, #editExitBtnCollapsed, .edit-icon {
-        display: none !important;
-      }
-      /* Optional: indicate read-only state */
-    </style>
+    <!-- Disabled Overlay for Fee Type 1 (Daily) -->
+    <?php if (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == '1'): ?>
+      <style>
+        /* Hide/Disable edit buttons for Fee Type 0 */
+        #editPlateBtn,
+        #editEntryBtn,
+        #editExitBtnCollapsed,
+        .edit-icon {
+          display: none !important;
+        }
+
+        /* Optional: indicate read-only state */
+      </style>
     <?php endif; ?>
 
     <!-- Success Overlay (Hidden) -->
@@ -399,10 +403,9 @@ if ($ticket) {
     const API_SETTINGS = {
       time_mode: <?php
       if (isset($ticket['api_data']['FEE_TYPE'])) {
-        // Warning: PHP '0' string vs int check.
-        // User said: fee type '0' is daily. 1 is presumably hourly/other.
-        // If type is 0, we want to enforce restrictions.
-        echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "daily" : "hourly") . "'";
+        // User said: fee type '0' is hourly. 1 is daily.
+        // If type is 1 (daily), we might want to enforce restrictions.
+        echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "hourly" : "daily") . "'";
       } else {
         echo "'" . ($config['parking_modes']['time_mode'] ?? 'hourly') . "'";
       }

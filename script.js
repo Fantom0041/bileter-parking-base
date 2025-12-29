@@ -1037,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-
+            console.log('Fee calculation response:', data);
             if (data.success) {
                 currentFee = data.fee;
                 updatePayButton();

@@ -22,7 +22,8 @@ header('Content-Type: application/json');
 
 // 1. Wczytanie konfiguracji i danych
 require_once 'ApiClient.php';
-$config = parse_ini_file('config.ini', true);
+$configPath = getenv('CONFIG_FILE') ?: 'config.ini';
+$config = parse_ini_file($configPath, true);
 if ($config === false) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Błąd konfiguracji']);
@@ -30,7 +31,11 @@ if ($config === false) {
 }
 
 // 2. Dane z żądania POST
-$input = json_decode(file_get_contents('php://input'), true);
+$rawInput = file_get_contents('php://input');
+if (empty($rawInput) && php_sapi_name() === 'cli') {
+    $rawInput = file_get_contents('php://stdin');
+}
+$input = json_decode($rawInput, true);
 $action = $input['action'] ?? 'pay';
 
 if ($action === 'create') {
@@ -38,27 +43,27 @@ if ($action === 'create') {
     // In our API-only mode, we treat this as "Check if ticket/plate exists and redirect".
     // If we were creating a NEW ticket in the system, we would need TICKET_EXECUTE, 
     // but the requirement implies working with existing tickets or validating plates.
-    
+
     $plate = $input['plate'] ?? null;
     if (!$plate) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Wymagany numer rejestracyjny']);
         exit;
     }
-    
+
     // Sanitize plate: Upper case, but allow spaces as some systems store plates with spaces (e.g. "KRA 12345")
     $plate = strtoupper(trim($input['plate'] ?? ''));
 
     try {
         $client = new ApiClient($config);
         $loginResult = $client->login();
-        
+
         if (!$loginResult['success']) {
-             throw new Exception("Błąd logowania do API: " . ($loginResult['error'] ?? 'Nieznany'));
+            throw new Exception("Błąd logowania do API: " . ($loginResult['error'] ?? 'Nieznany'));
         }
 
         $info = $client->getBarcodeInfo($plate);
-        $client->logout();
+
 
         if ($info['success']) {
             if (!empty($info['tickets'])) {
@@ -69,44 +74,44 @@ if ($action === 'create') {
                 ]);
                 exit;
             } elseif (isset($info['is_new']) && $info['is_new']) {
-                 // API said: Ticket doesn't exist (TICKET_EXIST=0), treat as new session
-                 // We don't mark as 'simulated' anymore, but as valid 'new' session backed by API info.
-                 // However, frontend JS expects 'simulated=1' to trigger the "New Ticket" UI flow?
-                 // Wait, User said "Remove simulation, use only API".
-                 // This means if I scan a plate that doesn't exist, I should probably START a session via API?
-                 // But we don't have TICKET_EXECUTE here.
-                 // We assume "New Session" means showing the UI to pay/park.
-                 // Let's return success without 'simulated' flag, but maybe with a 'is_new' flag if frontend uses it?
-                 // Actually, frontend logic for 'simulated' was just to redirect with ?simulated=1.
-                 // If we remove 'simulated', frontend redirects to normal view.
-                 // Normal view fetches ticket details. API will return TICKET_EXIST=0 details.
-                 // So we just return success.
-                 echo json_encode([
+                // API said: Ticket doesn't exist (TICKET_EXIST=0), treat as new session
+                // We don't mark as 'simulated' anymore, but as valid 'new' session backed by API info.
+                // However, frontend JS expects 'simulated=1' to trigger the "New Ticket" UI flow?
+                // Wait, User said "Remove simulation, use only API".
+                // This means if I scan a plate that doesn't exist, I should probably START a session via API?
+                // But we don't have TICKET_EXECUTE here.
+                // We assume "New Session" means showing the UI to pay/park.
+                // Let's return success without 'simulated' flag, but maybe with a 'is_new' flag if frontend uses it?
+                // Actually, frontend logic for 'simulated' was just to redirect with ?simulated=1.
+                // If we remove 'simulated', frontend redirects to normal view.
+                // Normal view fetches ticket details. API will return TICKET_EXIST=0 details.
+                // So we just return success.
+                echo json_encode([
                     'success' => true,
                     'ticket_id' => $plate
                     // 'is_new' => true // Optional if frontend needs it
                 ]);
-                exit;             
+                exit;
             } else {
-                 // Success but empty? Should not happen with new logic, but treat as empty/not found
+                // Success but empty? Should not happen with new logic, but treat as empty/not found
                 http_response_code(404);
                 echo json_encode([
-                    'success' => false, 
+                    'success' => false,
                     'message' => 'Nie znaleziono biletu w systemie API.'
                 ]);
                 exit;
             }
         }
-        
+
         if (!$info['success']) {
-             // Include debug info in error message
-             $debugInfo = isset($info['debug_request']) ? json_encode($info['debug_request']) : '';
-             throw new Exception("Błąd API: " . ($info['error'] ?? 'Nieznany') . " | Debug: " . $debugInfo);
+            // Include debug info in error message
+            $debugInfo = isset($info['debug_request']) ? json_encode($info['debug_request']) : '';
+            throw new Exception("Błąd API: " . ($info['error'] ?? 'Nieznany') . " | Debug: " . $debugInfo);
         }
 
     } catch (Exception $e) {
         error_log("API Error during search: " . $e->getMessage());
-        
+
         // Remove Simulation Fallback. Return Error.
         // Remove Simulation Fallback. Return Error.
         http_response_code(200); // Changed to 200 to allow JS to read message
@@ -125,19 +130,19 @@ if ($action === 'calculate_fee') {
 
         $ticket = null;
         if (!empty($config['api']['api_url'])) {
-             $client = new ApiClient($config);
-             if ($client->login()['success']) {
-                 $info = $client->getBarcodeInfo($ticket_id);
-                 if ($info['success'] && !empty($info['tickets'])) {
-                     $apiData = $info['tickets'][0];
-                     $ticket = [
-                         'plate' => $apiData['BARCODE'] ?? $ticket_id,
-                         'entry_time' => $apiData['VALID_FROM'],
-                         'status' => 'active'
-                     ];
-                 }
-                 $client->logout();
-             }
+            $client = new ApiClient($config);
+            if ($client->login()['success']) {
+                $info = $client->getBarcodeInfo($ticket_id);
+                if ($info['success'] && !empty($info['tickets'])) {
+                    $apiData = $info['tickets'][0];
+                    $ticket = [
+                        'plate' => $apiData['BARCODE'] ?? $ticket_id,
+                        'entry_time' => $apiData['VALID_FROM'],
+                        'status' => 'active'
+                    ];
+                }
+
+            }
         }
 
         if (!$ticket) {
@@ -154,58 +159,58 @@ if ($action === 'calculate_fee') {
         $entry_time = new DateTime($ticket['entry_time']);
         $current_time = new DateTime();
         if ($extension_minutes > 0) {
-             $current_time->modify("+{$extension_minutes} minutes");
+            $current_time->modify("+{$extension_minutes} minutes");
         }
         $calculationDate = $current_time->format('Y-m-d H:i:s');
-        
+
         // Zamiast liczyć lokalnie, pytamy API o kwotę na dany moment wyjazdu
         $fee = 0;
         $duration_minutes = 0;
-        
+
         // Ponowne połączenie w celu kalkulacji (chyba że trzymamy sesję - tu otwieramy nową)
         // W przyszłości warto zoptymalizować by nie logować się 2 razy (raz przy checku, raz tutaj)
         // Ale w obecnym kodzie check był wyżej.
-        
+
         if (!empty($config['api']['api_url'])) {
-             $client = new ApiClient($config);
-             if ($client->login()['success']) {
-                 $feeInfo = $client->getParkingFee($ticket['plate'], $calculationDate);
-                 
-                 if ($feeInfo['success']) {
-                     // API zwraca kwotę w groszach? Dokumentacja mówi: FEE :int64. Zazwyczaj to grosze.
-                     // Sprawdźmy konwencję. rate = 5.00. Jeśli user płaci 5 PLN, a API zwraca np 500, to grosze.
-                     // Ale format w config to 5.00. 
-                     // Jeśli API zwraca "5" jako int dla 5zł?
-                     // Bez pewności, załóżmy że to jednostki główne LUB grosze.
-                     // Standardem w takich systemach są grosze.
-                     // Jednak w configu mamy hourly_rate=5.00 (float).
-                     // Najbezpieczniej wyświetlić to co przyjdzie, ewentualnie podzielić przez 100 jeśli to grosze.
-                     // W api.md: FEE :int64 "aktualna oplata".
-                     // Zazwyczaj int64 oznacza grosze. 
-                     // Przyjmijmy że dzielimy przez 100.
-                     
-                     $rawFee = $feeInfo['data']['FEE'] ?? 0;
-                     $paidFee = $feeInfo['data']['FEE_PAID'] ?? 0;
-                     $toPay = $rawFee - $paidFee;
-                     
-                     // Czy dzielić przez 100?
-                     // Spójrzmy na config.ini: hourly_rate = 5.00.
-                     // Jeśli system BaseSystem używa groszy, to 5.00PLN = 500.
-                     // Zaryzykuję podzielenie przez 100, bo int64 rzadko jest dla kwot z przecinkiem, a dla "groszy".
-                     $fee = $toPay / 100.0; 
-                     
-                     // Czas trwania - obliczamy lokalnie dla UI, bo API nie zwraca 'duration' wprost, tylko daty.
-                     $validFrom = new DateTime($feeInfo['data']['VALID_FROM'] ?? $ticket['entry_time']);
-                     $interval = $validFrom->diff($current_time);
-                     $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
-                 } else {
-                     // Fallback albo błąd
-                     error_log("API Fee Calc Error: " . $feeInfo['error']);
-                     // Fallback do lokalnego? Nie, skoro użytkownik chce API.
-                     // Ale żeby nie blokować UI, zwróćmy błąd lub 0.
-                 }
-                 $client->logout();
-             }
+            $client = new ApiClient($config);
+            if ($client->login()['success']) {
+                $feeInfo = $client->getParkingFee($ticket['plate'], $calculationDate);
+
+                if ($feeInfo['success']) {
+                    // API zwraca kwotę w groszach? Dokumentacja mówi: FEE :int64. Zazwyczaj to grosze.
+                    // Sprawdźmy konwencję. rate = 5.00. Jeśli user płaci 5 PLN, a API zwraca np 500, to grosze.
+                    // Ale format w config to 5.00. 
+                    // Jeśli API zwraca "5" jako int dla 5zł?
+                    // Bez pewności, załóżmy że to jednostki główne LUB grosze.
+                    // Standardem w takich systemach są grosze.
+                    // Jednak w configu mamy hourly_rate=5.00 (float).
+                    // Najbezpieczniej wyświetlić to co przyjdzie, ewentualnie podzielić przez 100 jeśli to grosze.
+                    // W api.md: FEE :int64 "aktualna oplata".
+                    // Zazwyczaj int64 oznacza grosze. 
+                    // Przyjmijmy że dzielimy przez 100.
+
+                    $rawFee = $feeInfo['data']['FEE'] ?? 0;
+                    $paidFee = $feeInfo['data']['FEE_PAID'] ?? 0;
+                    $toPay = $rawFee - $paidFee;
+
+                    // Czy dzielić przez 100?
+                    // Spójrzmy na config.ini: hourly_rate = 5.00.
+                    // Jeśli system BaseSystem używa groszy, to 5.00PLN = 500.
+                    // Zaryzykuję podzielenie przez 100, bo int64 rzadko jest dla kwot z przecinkiem, a dla "groszy".
+                    $fee = $toPay / 100.0;
+
+                    // Czas trwania - obliczamy lokalnie dla UI, bo API nie zwraca 'duration' wprost, tylko daty.
+                    $validFrom = new DateTime($feeInfo['data']['VALID_FROM'] ?? $ticket['entry_time']);
+                    $interval = $validFrom->diff($current_time);
+                    $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
+                } else {
+                    // Fallback albo błąd
+                    error_log("API Fee Calc Error: " . $feeInfo['error']);
+                    // Fallback do lokalnego? Nie, skoro użytkownik chce API.
+                    // Ale żeby nie blokować UI, zwróćmy błąd lub 0.
+                }
+
+            }
         }
 
 
@@ -217,7 +222,7 @@ if ($action === 'calculate_fee') {
         ]);
     } catch (Exception $e) {
         error_log("Error calculating fee: " . $e->getMessage());
-         // Return 200/400 instead of 500 so frontend alert works
+        // Return 200/400 instead of 500 so frontend alert works
         echo json_encode([
             'success' => false,
             'message' => 'Błąd podczas obliczania opłaty: ' . $e->getMessage()
@@ -233,14 +238,14 @@ $amount = $input['amount'] ?? 0;
 // 3. Walidacja
 $ticket = null;
 if (!empty($config['api']['api_url'])) {
-     $client = new ApiClient($config);
-     if ($client->login()['success']) {
-         $info = $client->getBarcodeInfo($ticket_id);
-         if ($info['success'] && !empty($info['tickets'])) {
-             $ticket = ['status' => 'active']; // Found on API
-         }
-         $client->logout();
-     }
+    $client = new ApiClient($config);
+    if ($client->login()['success']) {
+        $info = $client->getBarcodeInfo($ticket_id);
+        if ($info['success'] && !empty($info['tickets'])) {
+            $ticket = ['status' => 'active']; // Found on API
+        }
+
+    }
 }
 
 if (!$ticket) {

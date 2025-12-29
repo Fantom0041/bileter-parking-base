@@ -1,21 +1,22 @@
 <?php
 
+require_once 'Logger.php';
 /**
  * Klasa do komunikacji z zewnętrznym API systemu biletowego
  */
 class ApiClient
 {
-    private $apiUrl;
-    private $config;
-    private $loginId = null;
-    private $orderIdCounter = 1;
+    protected $apiUrl;
+    protected $config;
+    protected $loginId = null;
+    protected $orderIdCounter = 1;
     private $logger;
 
-    public function __construct($config, $logger = null)
+    public function __construct($config )
     {
         $this->config = $config;
         $this->apiUrl = $config['api']['api_url'];
-        $this->logger = $logger;
+        $this->logger = new Logger();
     }
 
     /**
@@ -221,6 +222,7 @@ class ApiClient
         if ($response === false) {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
+        $this->logger->log('getBarcodeInfo response: ' . json_encode($response));
 
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             // Check TICKET_EXIST flag
@@ -278,12 +280,76 @@ class ApiClient
         }
     }
 
-    /**
 
+    /**
+     * Wyślij żądanie do API z automatycznym ponowieniem w przypadku błędu autoryzacji (-13)
      * @param array $data Dane żądania
+     * @param bool $retryAllowed Czy dozwolone jest ponowienie (zapobiega pętli)
      * @return array|false Odpowiedź z API lub false w przypadku błędu
      */
-    private function sendRequest($data)
+    private function sendRequest($data, $retryAllowed = true)
+    {
+        $response = $this->executeRawRequest($data);
+
+        // Obsługa błędu połączenia
+        if ($response === false) {
+            return false;
+        }
+
+        // Sprawdzenie poprawności METHOD i ORDER_ID
+        // Wyjątek: Odpowiedź ERROR ma METHOD: ERROR, ORDER_ID: "1" (string)
+        $respMethod = $response['METHOD'] ?? '';
+        $respOrderId = $response['ORDER_ID'] ?? null;
+
+        $reqMethod = $data['METHOD'];
+        $reqOrderId = $data['ORDER_ID'];
+
+        // 1. Walidacja METHOD
+        if ($respMethod !== $reqMethod && $respMethod !== 'ERROR') {
+            $this->logError("Niezgodność METHOD: oczekiwano $reqMethod lub ERROR, otrzymano $respMethod");
+            return ['STATUS' => -999, 'DESC' => 'Błąd protokołu: Błędna metoda odpowiedzi'];
+        }
+
+        // 2. Walidacja ORDER_ID (Luźna walidacja, bo API może zwracać string)
+        if ((string) $respOrderId !== (string) $reqOrderId) {
+            $this->logError("Niezgodność ORDER_ID: oczekiwano $reqOrderId, otrzymano " . ($respOrderId ?? 'NULL'));
+            // Kontynuujemy, ale logujemy ostrzeżenie - w niektórych systemach to może być akceptowalne,
+            // ale wg specyfikacji powinno być to samo.
+        }
+
+        // 3. Obsługa błędu -13 (UserNotAuthorized) z retry
+        $status = isset($response['STATUS']) ? (int) $response['STATUS'] : -999;
+
+        if ($status === -13 && $retryAllowed) {
+            $this->logError("Wykryto błąd autoryzacji (-13). Próba ponownego logowania...");
+
+            // Próba ponownego logowania
+            $loginKey = $this->config['api']['api_login'] ?? '';
+            // Reset ID logowania przed próbą
+            $this->loginId = null;
+
+            $loginResult = $this->login();
+            if ($loginResult['success']) {
+                $this->logError("Ponowne logowanie udane. Ponawiam oryginalne żądanie.");
+                // Aktualizuj LOGIN_ID w oryginalnym żądaniu
+                $data['LOGIN_ID'] = $this->loginId;
+                // Generuj nowy ORDER_ID dla ponowienia? Zazwyczaj tak.
+                $data['ORDER_ID'] = $this->getNextOrderId();
+
+                return $this->sendRequest($data, false); // false = brak kolejnego retry
+            } else {
+                $this->logError("Ponowne logowanie nieudane: " . ($loginResult['error'] ?? 'Nieznany błąd'));
+                return $response; // Zwróć oryginalny błąd -13
+            }
+        }
+
+        return $response;
+    }
+
+    /**
+     * Fizyczne wykonanie żądania TCP
+     */
+    protected function executeRawRequest($data)
     {
         // Parsuj URL aby wyciągnąć host i port
         $urlParts = parse_url($this->apiUrl);
@@ -299,10 +365,9 @@ class ApiClient
         $socket = @fsockopen($host, $port, $errno, $errstr, 10);
 
         if (!$socket) {
-            error_log("API Socket Error: $errstr ($errno)");
-            if ($this->logger) {
-                $this->logger->log("API Socket Error: $errstr ($errno)", 'ERROR');
-            }
+            $errorMsg = "API Socket Error: $errstr ($errno)";
+            error_log($errorMsg);
+            $this->logError($errorMsg);
             return false;
         }
 
@@ -320,7 +385,8 @@ class ApiClient
                 break;
             $response .= $line;
 
-            // Jeśli mamy kompletny JSON, przerwij
+            // Simple JSON detection to break early if complete
+            // (Note: this simple check might be fragile for partial reads but works for simple line protocols)
             $decoded = json_decode($response, true);
             if ($decoded !== null) {
                 break;
@@ -330,10 +396,7 @@ class ApiClient
         fclose($socket);
 
         if (empty($response)) {
-            error_log("API Error: Empty response");
-            if ($this->logger) {
-                $this->logger->log("API Error: Empty response", 'ERROR');
-            }
+            $this->logError("API Error: Empty response");
             return false;
         }
 
@@ -344,14 +407,20 @@ class ApiClient
         }
 
         if ($decoded === null) {
-            error_log("API Error: Invalid JSON response: " . $response);
-            if ($this->logger) {
-                $this->logger->log("API Error: Invalid JSON response: " . $response, 'ERROR');
-            }
+            $this->logError("API Error: Invalid JSON response: " . $response);
             return false;
         }
 
         return $decoded;
+    }
+
+    protected function logError($msg)
+    {
+        if ($this->logger) {
+            $this->logger->log($msg, 'ERROR');
+        } else {
+            error_log("[ApiClient] " . $msg);
+        }
     }
 
     /**
@@ -372,7 +441,7 @@ class ApiClient
     {
         $errors = [
             -1000 => 'Błąd bazy danych',
-            -13 => 'Użytkownik nieautoryzowany',
+            -13 => 'Użytkownik nieautoryzowany (Wymagane ponowne logowanie)',
             -12 => 'Szafka zajęta',
             -11 => 'Nieznana szatnia (autonr)',
             -10 => 'Nieznana szafka (numer)',
@@ -395,7 +464,17 @@ class ApiClient
             8 => 'Bilet zablokowany'
         ];
 
-        return $errors[$status] ?? "Nieznany błąd ($status)";
+        $msg = $errors[$status] ?? "Nieznany błąd ($status)";
+
+        // Add "Contact support" message to all negative errors except system ones if needed
+        // Requirement: "Do opisow dodajemy w nowej linii Skontaktuj sie z obsługą"
+        // Applying this to all errors < 0 except maybe temporary ones? 
+        // Spec says: "except -13".
+        if ($status < 0 && $status !== -13) {
+            $msg .= "\nSkontaktuj się z obsługą.";
+        }
+
+        return $msg;
     }
 
     /**
