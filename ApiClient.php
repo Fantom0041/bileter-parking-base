@@ -182,49 +182,44 @@ class ApiClient
             'DATE_TO' => $dateTo
         ];
 
+          $this->logger->log('getParkTicketInfo request ApiClient.php: ' . json_encode($request));
+
         $response = $this->sendRequest($request);
 
-        $this->logger->log('getParkTicketInfo request: ' . json_encode($request));
-        $this->logger->log('getParkTicketInfo response: ' . json_encode($response));
+      
+        $this->logger->log('getParkTicketInfo response ApiClient.php: ' . json_encode($response));
 
         if ($response === false) {
             return ['success' => false, 'error' => 'Błąd połączenia z API'];
         }
-        $this->logger->log('getParkTicketInfo response: ' . json_encode($response));
-
+        
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             // Check TICKET_EXIST flag
             $ticketExist = isset($response['TICKET_EXIST']) && $response['TICKET_EXIST'] == 1;
+            $this->logger->log('getParkTicketInfo ticketExist: ' . json_encode($ticketExist));
+           
+            $ticketData = [
+                'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode, // Prefer Registration Number if available
+                'TICKET_ID' => $response['TICKET_ID'] ?? null,
+                'VALID_FROM' => $response['VALID_FROM'] ?? null,
+                'VALID_TO' => $response['VALID_TO'] ?? null,
+                'FEE' => $response['FEE'] ?? 0,
+                'STATUS' => 'active',
+                'FEE_TYPE' => $response['FEE_TYPE'] ?? null,
+                'FEE_STARTS_TYPE' => $response['FEE_STARTS_TYPE'] ?? null,
+                'FEE_MULTI_DAY' => $response['FEE_MULTI_DAY'] ?? null,
+                'FEE_PAID' => $response['FEE_PAID'] ?? 0,
+                'TICKET_EXIST' => $response['TICKET_EXIST'] ?? null,
+                'DATE' => $response['DATE'] ?? null
+            ];
+            $this->logger->log('getParkTicketInfo ticketData: ' . json_encode($ticketData));
 
-            if ($ticketExist) {
-                // Map PARK_TICKET_GET_INFO response to expected 'tickets' structure
-                $ticketData = [
-                    'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode, // Prefer Registration Number if available
-                    'TICKET_ID' => $response['TICKET_ID'] ?? null,
-                    'VALID_FROM' => $response['VALID_FROM'] ?? null,
-                    'VALID_TO' => $response['VALID_TO'] ?? null,
-                    'FEE' => $response['FEE'] ?? 0,
-                    'STATUS' => 'active',
-                    'FEE_TYPE' => $response['FEE_TYPE'] ?? null,
-                    'FEE_STARTS_TYPE' => $response['FEE_STARTS_TYPE'] ?? null,
-                    'FEE_MULTI_DAY' => $response['FEE_MULTI_DAY'] ?? null,
-                    'FEE_PAID' => $response['FEE_PAID'] ?? 0,
-                    'TICKET_EXIST' => $response['TICKET_EXIST'] ?? null
-                ];
-                return [
-                    'success' => true,
-                    'tickets' => [$ticketData],
-                    'lockers' => $response['LOCKERS'] ?? []
-                ];
-            } else {
-                return [
-                    'success' => true,
-                    'tickets' => [], // Empty = Not found (so api.php will handle as New)
-                    'lockers' => [],
-                    'is_new' => true, // Flag for api.php to know it's a valid new session capability
-                    'defaults' => $response // Pass defaults just in case
-                ];
-            }
+            return [
+                'success' => true,
+                'tickets' => [$ticketData],
+                'lockers' => $response['LOCKERS'] ?? [],
+                'is_new' => !$ticketExist // Keep flag for consumers who care about TICKET_EXIST specifically
+            ];
         } else {
             // Special handling for Error -3 (Invalid Data).
             // In this specific API implementation, querying a non-existent plate via PARK_TICKET_GET_INFO
@@ -326,9 +321,7 @@ class ApiClient
 
         $jsonRequest = json_encode($data);
 
-        if ($this->logger) {
-            $this->logger->logApi('EXTERNAL_REQUEST', $this->apiUrl, $data);
-        }
+      
 
         $socket = @fsockopen($host, $port, $errno, $errstr, 10);
 
@@ -370,10 +363,7 @@ class ApiClient
 
         $decoded = json_decode($response, true);
 
-        if ($this->logger) {
-            $this->logger->logApi('EXTERNAL_RESPONSE', $this->apiUrl, $decoded ?? $response);
-        }
-
+   
         if ($decoded === null) {
             $this->logError("API Error: Invalid JSON response: " . $response);
             return false;

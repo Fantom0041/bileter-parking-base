@@ -129,21 +129,7 @@ if ($action === 'calculate_fee') {
         $extension_minutes = $input['extension_minutes'] ?? 0;
 
         $ticket = null;
-        if (!empty($config['api']['api_url'])) {
-            $client = new ApiClient($config);
-            if ($client->login()['success']) {
-                $info = $client->getParkTicketInfo($ticket_id, date('Y-m-d H:i:s', strtotime('-1 year')), date('Y-m-d H:i:s', strtotime('+1 day')));
-                if ($info['success'] && !empty($info['tickets'])) {
-                    $apiData = $info['tickets'][0];
-                    $ticket = [
-                        'plate' => $apiData['BARCODE'] ?? $ticket_id,
-                        'entry_time' => $apiData['VALID_FROM'],
-                        'status' => 'active'
-                    ];
-                }
-
-            }
-        }
+       
 
         if (!$ticket) {
             // Treat as new session if not found

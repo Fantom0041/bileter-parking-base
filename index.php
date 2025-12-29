@@ -37,11 +37,10 @@ if ($ticket_id) {
       $logger->log("loginResult: " . json_encode($loginResult));
       if ($loginResult['success']) {
         $info = $client->getParkTicketInfo($ticket_id);
-        $logger->log("info: " . json_encode($info));
         if ($info['success']) {
           if (!empty($info['tickets'])) {
             $apiData = $info['tickets'][0]; // Take the first active ticket
-            $logger->log("API Data: " . $apiData);
+            $logger->log("API Data in page load: " . json_encode($apiData));
             $ticket = [
               'plate' => $apiData['BARCODE'] ?? $ticket_id,
               'entry_time' => $apiData['VALID_FROM'],
@@ -302,7 +301,10 @@ if ($ticket) {
           $feePaidRaw = $ticket['api_data']['FEE_PAID'] ?? 0;
           $feePaid = $feePaidRaw / 100;
 
-          $validToRaw = $ticket['api_data']['VALID_TO'] ?? null;
+          // Fix: Use DATE (Calculation "Stop" Date) if available, otherwise fallback to VALID_TO
+          // User verified that VALID_TO is start/grace period, DATE is the correct stop time.
+          $validToRaw = $ticket['api_data']['DATE'] ?? $ticket['api_data']['VALID_TO'] ?? null;
+
           if ($validToRaw && $validToRaw > $validFrom) {
             $validTo = $validToRaw;
           }
@@ -317,12 +319,12 @@ if ($ticket) {
           <div class="payment-col right">
             <!-- Only show 'Wyjazd do' if validTo is available and > validFrom -->
             <?php if ($validTo): ?>
-              <span class="payment-label">Wyjazd do:</span>
-              <span class="payment-value"><?php echo htmlspecialchars($validTo); ?></span>
+              <span id="paymentInfoExitLabel" class="payment-label">Wyjazd do:</span>
+              <span id="paymentInfoExitValue" class="payment-value"><?php echo htmlspecialchars($validTo); ?></span>
             <?php else: ?>
-              <!-- Optional: Placeholder or empty if logic dictates -->
-              <span class="payment-label" style="opacity: 0;">-</span>
-              <span class="payment-value" style="opacity: 0;">-</span>
+              <!-- Modified: Added IDs here too for JS to target even if initially empty -->
+              <span id="paymentInfoExitLabel" class="payment-label" style="opacity: 0;">Wyjazd do:</span>
+              <span id="paymentInfoExitValue" class="payment-value" style="opacity: 0;">-</span>
             <?php endif; ?>
           </div>
         </div>
@@ -361,10 +363,10 @@ if ($ticket) {
     <?php if (isset($ticket['api_data']['FEE_TYPE']) && $ticket['api_data']['FEE_TYPE'] == '0'): ?>
       <style>
         /* Hide/Disable edit buttons for Fee Type 0 */
-        #editPlateBtn,
+        /* #editPlateBtn, REMOVED to allow editing */
+
         #editEntryBtn,
-        #editExitBtnCollapsed,
-        .edit-icon {
+        #editExitBtnCollapsed {
           display: none !important;
         }
 

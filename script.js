@@ -992,6 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const year = exitTime.getFullYear();
         const hours = String(exitTime.getHours()).padStart(2, '0');
         const mins = String(exitTime.getMinutes()).padStart(2, '0');
+        const secs = String(exitTime.getSeconds()).padStart(2, '0'); // Added seconds for precision if needed
 
         // Update global exit time
         currentExitTime = exitTime;
@@ -1003,6 +1004,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
         if (exitTimeDisplayCollapsed) {
             exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+        }
+
+        // --- NEW CODE: Update "Wyjazd do" in Payment Info Card ---
+        const paymentInfoExitLabel = document.getElementById('paymentInfoExitLabel');
+        const paymentInfoExitValue = document.getElementById('paymentInfoExitValue');
+        
+        if (paymentInfoExitLabel && paymentInfoExitValue) {
+            // Format: YYYY-MM-DD HH:mm:ss to match PHP format or simplified
+            paymentInfoExitValue.textContent = `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+            
+            // Ensure they are visible (opacity 1)
+            paymentInfoExitLabel.style.opacity = '1';
+            paymentInfoExitValue.style.opacity = '1';
         }
     }
 
@@ -1158,9 +1172,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function savePlate() {
             const newPlate = plateInput.value.toUpperCase();
-            if (newPlate.trim() !== "") {
-                plateDisplay.innerText = newPlate;
+            if (newPlate.trim() !== "" && newPlate !== plateDisplay.innerText.trim()) {
+                // Reload with new ticket ID
+                window.location.href = `index.php?ticket_id=${encodeURIComponent(newPlate)}`;
+                return;
             }
+            // If no change or empty, just toggle back
             plateDisplay.style.display = 'flex';
             plateInput.style.display = 'none';
             editPlateBtn.style.display = 'flex';
