@@ -216,6 +216,44 @@ if ($action === 'calculate_fee') {
     exit;
 }
 
+if ($action === 'set_plate') {
+    $ticket_id = $input['ticket_id'] ?? null; // This should be the BARCODE
+    $new_plate = $input['new_plate'] ?? null;
+
+    if (!$ticket_id || !$new_plate) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Brak wymaganych danych (ticket_id, new_plate)']);
+        exit;
+    }
+
+    try {
+        if (empty($config['api']['api_url'])) {
+            throw new Exception("Brak konfiguracji API");
+        }
+
+        $client = new ApiClient($config);
+        $loginResult = $client->login();
+
+        if (!$loginResult['success']) {
+            throw new Exception("Błąd logowania do API: " . ($loginResult['error'] ?? 'Nieznany'));
+        }
+
+        $result = $client->setPlate($ticket_id, $new_plate);
+
+        if ($result['success']) {
+            echo json_encode(['success' => true]);
+        } else {
+            throw new Exception("Błąd zmiany numeru: " . ($result['error'] ?? 'Nieznany błąd'));
+        }
+
+    } catch (Exception $e) {
+        error_log("Set Plate Error: " . $e->getMessage());
+        http_response_code(200);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // Opłacenie istniejącego biletu
 if ($action === 'pay') {
     $ticket_id = $input['ticket_id'] ?? null;

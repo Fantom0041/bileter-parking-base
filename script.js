@@ -199,10 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (editExitBtnCollapsed) {
                 editExitBtnCollapsed.style.display = 'none';
             }
-            // Add margin-right to compensate for hidden button (20px icon + 24px padding = 44px)
-            if (exitTimeDisplayCollapsed) {
-                exitTimeDisplayCollapsed.style.marginRight = '28px';
-            }
+         
 
             // Update collapsed exit time display to show end of day
             const entryTime = new Date(ENTRY_TIME);
@@ -478,11 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (editExitBtnCollapsed) {
                     editExitBtnCollapsed.style.display = 'none';
                 }
-                // Add margin-right to compensate for hidden button (20px icon + 24px padding = 44px)
-                if (exitTimeDisplayCollapsed) {
-                    exitTimeDisplayCollapsed.style.marginRight = '28px';
-                }
-
+               
                 // Calculate and display end of day time
                 const entryTime = new Date(ENTRY_TIME);
                 const endOfDay = new Date(entryTime);
@@ -1218,11 +1211,70 @@ document.addEventListener('DOMContentLoaded', () => {
             editPlateBtn.style.display = 'none';
         });
 
-        function savePlate() {
+        async function savePlate() {
             const newPlate = plateInput.value.toUpperCase();
             if (newPlate.trim() !== "" && newPlate !== plateDisplay.innerText.trim()) {
-                // Reload with new ticket ID
-                window.location.href = `index.php?ticket_id=${encodeURIComponent(newPlate)}`;
+                const ticketBarcode = API_SETTINGS.ticket_barcode; // Got from PHP
+
+                // If we have a numeric barcode > 0, we use SET_PLATE
+                // Note: API returns BARCODE as string, so we convert to verify > 0
+                // Assuming "numeric" means it looks like a number.
+                // The protocol says "jesli jest > 0".
+                const isBarcodeValid = ticketBarcode && !isNaN(ticketBarcode) && Number(ticketBarcode) > 0;
+
+                if (isBarcodeValid) {
+                    // Call API to set plate
+                    const originalIcon = editPlateBtn.innerHTML;
+                    editPlateBtn.innerHTML = '...'; // Spinner placeholder
+                    
+                    try {
+                        const response = await fetch('api.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                action: 'set_plate', 
+                                ticket_id: ticketBarcode,
+                                new_plate: newPlate
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            // Update display and toggle back
+                            plateDisplay.innerText = newPlate;
+                            // Also update URL without reload if possible? 
+                            // Or just reload to be safe/consistent? 
+                            // "do zmiany powiazaniu numeru ... jesli barcode > 0"
+                            // If we change it successfully, the current page/ticket is still valid but has new plate.
+                            // We should probably just update the UI.
+                            plateDisplay.style.display = 'flex';
+                            plateInput.style.display = 'none';
+                            editPlateBtn.style.display = 'flex';
+                            editPlateBtn.innerHTML = originalIcon;
+                            
+                            // Update TICKET_ID in URL for consistency if it was using plate?
+                            // But here TICKET_ID (PHP) might be the barcode or old plate.
+                            // If we loaded by TicketID (Barcode), URL doesn't change.
+                            // If we loaded by Plate, URL might be old plate.
+                            // Let's reload to be safe and ensure everything syncs, UNLESS we want "seamless"
+                            // User requirement: "Tylko wtedy kiedy BARCODE ... > 0."
+                            // It doesn't strictly say "no reload", but logical for "set" is to stay.
+                        } else {
+                            alert('Błąd zmiany numeru: ' + data.message);
+                            // Revert?
+                            plateInput.focus();
+                            editPlateBtn.innerHTML = originalIcon;
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert('Błąd komunikacji: ' + error.message);
+                        editPlateBtn.innerHTML = originalIcon;
+                    }
+                } else {
+                    // Fallback to old behavior: Reload with new plate as ID
+                    window.location.href = `index.php?ticket_id=${encodeURIComponent(newPlate)}`;
+                }
                 return;
             }
             // If no change or empty, just toggle back

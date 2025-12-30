@@ -199,7 +199,8 @@ class ApiClient
             $this->logger->log('getParkTicketInfo ticketExist: ' . json_encode($ticketExist));
 
             $ticketData = [
-                'BARCODE' => $response['REGISTRATION_NUMBER'] ?? $barcode, // Prefer Registration Number if available
+                'BARCODE' => $response['BARCODE'] ?? $barcode, // Ticket ID from API
+                'REGISTRATION_NUMBER' => $response['REGISTRATION_NUMBER'] ?? $barcode, // Plate Number
                 'TICKET_ID' => $response['TICKET_ID'] ?? null,
                 'VALID_FROM' => $response['VALID_FROM'] ?? null,
                 'VALID_TO' => $response['VALID_TO'] ?? null,
@@ -294,6 +295,47 @@ class ApiClient
             ];
         }
     }
+
+    /**
+     * Zmiana numeru rejestracyjnego dla podanego numeru biletu parkingowego
+     * @param string $barcode Numer biletu parkingowego (BARCODE > 0)
+     * @param string $newPlate Nowy numer rejestracyjny
+     * @return array ['success' => bool, 'error' => string]
+     */
+    public function setPlate($barcode, $newPlate)
+    {
+        if (!$this->loginId) {
+            return ['success' => false, 'error' => 'Nie zalogowano'];
+        }
+
+        $request = [
+            'METHOD' => 'PARK_TICKET_SET_PLATE',
+            'ORDER_ID' => $this->getNextOrderId(),
+            'LOGIN_ID' => $this->loginId,
+            'BARCODE' => $barcode,
+            'REGISTRATION_NUMBER' => $newPlate
+        ];
+
+        $this->logger->log('setPlate request: ' . json_encode($request));
+
+        $response = $this->sendRequest($request);
+
+        $this->logger->log('setPlate response: ' . json_encode($response));
+
+        if ($response === false) {
+            return ['success' => false, 'error' => 'Błąd połączenia z API'];
+        }
+
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
+            return ['success' => true];
+        } else {
+            return [
+                'success' => false,
+                'error' => $this->getErrorMessage($response['STATUS'] ?? -999)
+            ];
+        }
+    }
+
 
 
     /**

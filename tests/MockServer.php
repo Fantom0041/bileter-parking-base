@@ -119,6 +119,15 @@ while ($conn = stream_socket_accept($socket)) {
       }
       break;
 
+    case 'PARK_TICKET_SET_PLATE':
+      // Return Success
+      $response = [
+        'METHOD' => 'PARK_TICKET_SET_PLATE',
+        'ORDER_ID' => $orderId,
+        'STATUS' => 0
+      ];
+      break;
+
     default:
       $response = [
         'METHOD' => 'ERROR',

@@ -42,7 +42,7 @@ if ($ticket_id) {
             $apiData = $info['tickets'][0]; // Take the first active ticket
             $logger->log("API Data in page load: " . json_encode($apiData));
             $ticket = [
-              'plate' => $apiData['BARCODE'] ?? $ticket_id,
+              'plate' => !empty($apiData['REGISTRATION_NUMBER']) ? $apiData['REGISTRATION_NUMBER'] : ($apiData['BARCODE'] ?? $ticket_id),
               'entry_time' => $apiData['VALID_FROM'],
               'status' => 'active',
               'is_new' => false, // Found in DB -> Existing
@@ -208,9 +208,7 @@ if ($ticket) {
       <!-- Collapsed Entry Time (Default) -->
       <div class="info-card-full" id="entryCollapsed" style="position: relative;">
         <span class="label">Start</span>
-        <button id="editEntryBtn" class="edit-icon" 
-          style="display: none;" aria-label="Edytuj start"
-        >
+        <button id="editEntryBtn" class="edit-icon" style="display: none;" aria-label="Edytuj start">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -220,7 +218,7 @@ if ($ticket) {
         <span class="value">
           <span id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
         </span>
-        
+
       </div>
     </section>
 
@@ -257,16 +255,16 @@ if ($ticket) {
       <div class="info-card-full">
         <span class="label">Stop</span>
         <button id="editExitBtnCollapsed" class="edit-icon"
-            style="position: static; transform: none; padding: 12px; margin: -12px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </button>
+          style="position: static; transform: none; padding: 12px; margin: -12px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+        </button>
         <span class="value" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
-           
+
           <span id="exitTimeDisplayCollapsed">--:--</span>
-         
+
         </span>
       </div>
     </section>
