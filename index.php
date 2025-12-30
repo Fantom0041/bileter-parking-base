@@ -156,12 +156,7 @@ if ($ticket) {
 
         <h1>Rozlicz parkowanie</h1>
 
-        <?php if ($error): ?>
-          <div
-            style="background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffcdd2;">
-            <?php echo htmlspecialchars($error); ?>
-          </div>
-        <?php endif; ?>
+      
 
         <p>Wpisz numer rejestracyjny / numer biletu.</p>
 
@@ -169,6 +164,13 @@ if ($ticket) {
           <input type="text" id="plateInput" placeholder="np. KRA 12345" maxlength="10" required>
           <button type="submit" class="btn-primary">Start</button>
         </form>
+        
+          <?php if ($error): ?>
+          <div
+            style="background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffcdd2;">
+            <?php echo htmlspecialchars($error); ?>
+          </div>
+        <?php endif; ?>
       </div>
       <!-- Footer -->
       <!-- Footer -->
@@ -288,6 +290,29 @@ if ($ticket) {
     </section>
 
     <!-- Status / Payment Info -->
+
+
+    <!-- Interactive Spinner -->
+    <section class="timer-section">
+
+      <div class="timer-circle" id="spinnerContainer">
+        <div id="slider"></div>
+
+        <div class="timer-content" style="pointer-events: none;">
+          <span class="label" id="spinnerLabel">WYJAZD</span>
+          <span class="value" id="spinnerValue">00:00<small>/h</small></span>
+        </div>
+      </div>
+    </section>
+    <!-- Footer -->
+
+
+
+
+    <div class="spacer"></div>
+
+    <!-- Bottom Sheet: Payment Control -->
+    <footer class="payment-sheet" id="paymentSheet">
     <section class="status-section">
       <div class="payment-info-card" <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'style="display:none;"' : ''; ?>>
         <?php
@@ -335,28 +360,6 @@ if ($ticket) {
         </div>
       </div>
     </section>
-
-    <!-- Interactive Spinner -->
-    <section class="timer-section">
-
-      <div class="timer-circle" id="spinnerContainer">
-        <div id="slider"></div>
-
-        <div class="timer-content" style="pointer-events: none;">
-          <span class="label" id="spinnerLabel">WYJAZD</span>
-          <span class="value" id="spinnerValue">00:00<small>/h</small></span>
-        </div>
-      </div>
-    </section>
-    <!-- Footer -->
-
-
-
-
-    <div class="spacer"></div>
-
-    <!-- Bottom Sheet: Payment Control -->
-    <footer class="payment-sheet" id="paymentSheet">
       <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
         <?php echo $fee > 0 ? 'Zapłać ' . number_format($fee, 2) . ' ' . $config['settings']['currency'] : 'Wyjazd bez opłaty'; ?>
       </button>

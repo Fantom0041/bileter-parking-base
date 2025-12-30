@@ -39,8 +39,8 @@ body {
     padding-left: 24px;
     padding-right: 24px;
 
-    padding-bottom: 80px;
-    /* Space for footer */
+    padding-bottom: 150px;
+    /* Space for taller footer with status section */
     overflow-x: hidden;
     border-left: 2px solid #D0D0D0;
     border-right: 2px solid #D0D0D0;
@@ -378,7 +378,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-   
+
 }
 
 .info-card-full {
@@ -429,7 +429,7 @@ body {
 .exit-time-card {
 
     position: relative;
-   
+
 }
 
 .glass-content .label {
@@ -519,7 +519,7 @@ body {
     z-index: 100;
     transition: transform 0.3s ease;
 
-  
+
     overflow: hidden;
 }
 
@@ -747,6 +747,7 @@ body {
 .error-container {
     width: 100%;
     display: flex;
+   
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -820,15 +821,21 @@ body {
     position: relative;
     border-radius: 8px;
     padding: 16px;
-   
+
     /* Preserve spacing previously on section/card */
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
     /* Added strong shadow */
 }
-#exitExpanded .glass-container, #entryExpanded .glass-container {
+
+#exitExpanded .glass-container,
+#entryExpanded .glass-container {
     padding: 10px;
 }
-#exitCollapsed, #exitExpanded, #entryCollapsed, #entryExpanded {
+
+#exitCollapsed,
+#exitExpanded,
+#entryCollapsed,
+#entryExpanded {
     margin-bottom: 10px;
 }
 
@@ -906,7 +913,7 @@ body {
     transform: translateX(-50%);
     left: 50%;
 }
-    
+
 
 .app-footer strong,
 .app-footer a {
