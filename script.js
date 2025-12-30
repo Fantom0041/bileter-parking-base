@@ -260,7 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editEntryBtn) editEntryBtn.style.display = 'flex';
 
         if (editEntryBtn) {
-            editEntryBtn.addEventListener('click', () => {
+            editEntryBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 // Switch to entry edit mode
                 editMode = 'entry';
 
@@ -299,12 +300,27 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        const entryCollapsed = document.getElementById('entryCollapsed');
+        if (entryCollapsed && editEntryBtn) {
+            entryCollapsed.addEventListener('click', () => {
+                 editEntryBtn.click();
+            });
+        }
+
         // Edit exit button handler (in collapsed Stop section when editing entry)
         const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
         if (editExitBtnCollapsed) {
             editExitBtnCollapsed.addEventListener('click', () => {
                 // Save entry changes and return to normal mode
                 saveEntryChanges();
+            });
+        }
+        
+        // Make the entire collapsed Exit component clickable
+        if (exitCollapsed && editExitBtnCollapsed) {
+            exitCollapsed.addEventListener('click', () => {
+                // Only trigger if enabled (visible check is implicit as click won't happen if hidden, but verifying state is good)
+                 editExitBtnCollapsed.click();
             });
         }
 
@@ -1023,14 +1039,26 @@ document.addEventListener('DOMContentLoaded', () => {
         payButton.disabled = true;
     }
 
+    // Helper to get the most effective Ticket ID for API operations
+    // Prioritizes numeric Barcode (if valid) over the initial Ticket ID (which might be a Plate)
+    function getEffectiveTicketId() {
+        const ticketBarcode = API_SETTINGS.ticket_barcode;
+        // Check if barcode is valid and positive number
+        if (ticketBarcode && !isNaN(ticketBarcode) && Number(ticketBarcode) > 0) {
+            return ticketBarcode;
+        }
+        return TICKET_ID;
+    }
+
     async function fetchCalculatedFee(extensionMinutes) {
         try {
+            const effectiveId = getEffectiveTicketId();
             const response = await fetch('api.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'calculate_fee',
-                    ticket_id: TICKET_ID,
+                    ticket_id: effectiveId,
                     extension_minutes: extensionMinutes,
                     entry_time: ENTRY_TIME
                 })
@@ -1143,6 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            const effectiveId = getEffectiveTicketId();
             const response = await fetch('api.php', {
                 method: 'POST',
                 headers: {
@@ -1150,7 +1179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 body: JSON.stringify({
                     action: 'pay',
-                    ticket_id: TICKET_ID,
+                    ticket_id: effectiveId,
                     amount: currentFee,
                     entry_time: ENTRY_TIME,
                     exit_time: formatDateTime(currentExitTime)
@@ -1203,12 +1232,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const plateDisplay = document.getElementById('plateDisplay');
     const plateInput = document.getElementById('plateEditInput');
 
+    const licensePlateContainer = document.getElementById('licensePlateContainer');
+
     if (editPlateBtn && plateDisplay && plateInput) {
-        editPlateBtn.addEventListener('click', () => {
+        editPlateBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             plateDisplay.style.display = 'none';
             plateInput.style.display = 'block';
             plateInput.focus();
             editPlateBtn.style.display = 'none';
+        });
+        
+        if (licensePlateContainer) {
+            licensePlateContainer.addEventListener('click', () => {
+                // If input is not visible and button is visible (or effectively active)
+                if (plateInput.style.display === 'none' || plateInput.style.display === '') {
+                     editPlateBtn.click();
+                }
+            });
+        }
+        
+        plateInput.addEventListener('click', (e) => {
+            e.stopPropagation();
         });
 
         async function savePlate() {

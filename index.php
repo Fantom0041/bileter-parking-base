@@ -179,7 +179,7 @@ if ($ticket) {
 
     <!-- Hero: License Plate -->
     <section class="plate-section">
-      <div class="license-plate" id="licensePlateContainer">
+      <div class="license-plate" id="licensePlateContainer" style="cursor: pointer;">
         <div class="plate-blue">
           <span>PL</span>
         </div>
@@ -206,7 +206,7 @@ if ($ticket) {
       </div>
 
       <!-- Collapsed Entry Time (Default) -->
-      <div class="info-card-full" id="entryCollapsed" style="position: relative;">
+      <div class="info-card-full" id="entryCollapsed" style="position: relative; cursor: pointer;">
         <span class="label">Start</span>
         <button id="editEntryBtn" class="edit-icon" style="display: none;" aria-label="Edytuj start">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -251,7 +251,7 @@ if ($ticket) {
 
 
     <!-- Collapsed Exit Time (Hidden by default, shown when editing entry) -->
-    <section class="details-section" id="exitCollapsed" style="display: none;">
+    <section class="details-section" id="exitCollapsed" style="display: none; cursor: pointer;">
       <div class="info-card-full">
         <span class="label">Stop</span>
         <button id="editExitBtnCollapsed" class="edit-icon"
