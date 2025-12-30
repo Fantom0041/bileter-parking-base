@@ -37,6 +37,7 @@ if ($ticket_id) {
       $logger->log("loginResult: " . json_encode($loginResult));
       if ($loginResult['success']) {
         $info = $client->getParkTicketInfo($ticket_id);
+        $logger->log("getParkTicketInfo in index.php start of try block: " . json_encode($info));
         if ($info['success']) {
           if (!empty($info['tickets'])) {
             $apiData = $info['tickets'][0]; // Take the first active ticket
@@ -52,7 +53,7 @@ if ($ticket_id) {
             // API confirmed new ticket session (TICKET_EXIST=0 or Error -3 handled)
             $ticket = [
               'plate' => $ticket_id,
-              'entry_time' => date('Y-m-d H:i:s'), // Default to now
+              'entry_time' => date('Y-m-d H:i:00'), // Default to now with 00 seconds
               'status' => 'active',
               'is_new' => true, // Flag as new
               'api_data' => $info['defaults'] ?? [] // Use defaults if available
@@ -108,9 +109,57 @@ if ($ticket) {
       $is_free_period = true;
       $status_message = "Okres bezpłatny (" . ($config['settings']['free_minutes'] - $duration_minutes) . " min pozostało)";
     } else {
-      // Simple hourly calculation: ceil(hours) * rate
-      $hours = ceil($duration_minutes / 60);
-      $fee = $hours * $config['settings']['hourly_rate'];
+      // Pre-calculate Fee for Initial Render (Server-Side)
+      // This avoids the "wrong" initial flash and double fetch.
+      // If Daily + Free Period passed, calculate properly.
+
+      // Determine mode logic (simplified replication of JS logic)
+      $feeType = $ticket['api_data']['FEE_TYPE'] ?? ($config['parking_modes']['time_mode'] == 'daily' ? '0' : '1');
+      $feeMultiDay = $ticket['api_data']['FEE_MULTI_DAY'] ?? ($config['parking_modes']['duration_mode'] == 'multi_day' ? '1' : '0');
+      $feeStartsType = $ticket['api_data']['FEE_STARTS_TYPE'] ?? ($config['parking_modes']['day_counting'] == 'from_midnight' ? '1' : '0');
+
+      $isDaily = ($feeType == '0');
+      $isMultiDay = ($feeMultiDay == '1');
+      $isSingleDay = ($feeMultiDay == '0');
+
+      // Calculate EXIT time for initial fee check
+      $calcExitTime = clone $current_time;
+
+      if ($isDaily && $isSingleDay) {
+        // Daily + Single Day: Fee is calculated until End of Day (23:59:59)
+        $calcExitTime = clone $entry_time;
+        $calcExitTime->setTime(23, 59, 00); // Set to end of day with 00 seconds
+
+        // If we are already past this time? (e.g. next day) -> Logic handles via dates.
+        // But for "Single Day" mode, we usually assume the ticket is for THAT day.
+        // Let's recalculate fee via API with this specific Exit Time
+
+        if (!empty($config['api']['api_url'])) {
+          try {
+            $client = new ApiClient($config);
+            if ($client->login()['success']) {
+              // Request exact fee for Entry -> EndOfDay
+              $feeInfo = $client->getParkTicketInfo($ticket['plate'], $entry_time->format('Y-m-d H:i:00'), $calcExitTime->format('Y-m-d H:i:00'));
+              if ($feeInfo['success'] && !empty($feeInfo['tickets'])) {
+                $tData = $feeInfo['tickets'][0];
+                $rawFee = $tData['FEE'] ?? 0;
+                $paidFee = $tData['FEE_PAID'] ?? 0;
+                $fee = ($rawFee - $paidFee) / 100.0;
+              }
+            }
+          } catch (Exception $e) {
+            // Fallback to local calculation
+            error_log("Pre-calc Fee Error: " . $e->getMessage());
+          }
+        }
+      } else {
+        // Hourly or Multi-Day default:
+        // Simple local calculation or just show 0 and let JS verify?
+        // Existing logic:
+        $hours = ceil($duration_minutes / 60);
+        $fee = $hours * $config['settings']['hourly_rate'];
+      }
+
       $status_message = "Aktywne";
     }
   }
@@ -154,21 +203,21 @@ if ($ticket) {
     <?php if (!$ticket): ?>
       <div class="error-container" style="min-height: auto; padding-top: 20px;">
 
-      <div class="login-container">
+        <div class="login-container">
 
-      
-        <h1>Rozlicz parkowanie</h1>
 
-      
+          <h1>Rozlicz parkowanie</h1>
 
-        <p>Wpisz numer rejestracyjny / numer biletu.</p>
 
-        <form id="newTicketForm" class="new-ticket-form">
-          <input type="text" id="plateInput" placeholder="np. KRA 12345" maxlength="10" required>
-          <button type="submit" class="btn-primary">Start</button>
-        </form>
-</div>
-          <?php if ($error): ?>
+
+          <p>Wpisz numer rejestracyjny / numer biletu.</p>
+
+          <form id="newTicketForm" class="new-ticket-form">
+            <input type="text" id="plateInput" placeholder="np. KRA 12345" maxlength="10" required>
+            <button type="submit" class="btn-primary">Start</button>
+          </form>
+        </div>
+        <?php if ($error): ?>
           <div
             style="background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffcdd2;">
             <?php echo htmlspecialchars($error); ?>
@@ -177,11 +226,11 @@ if ($ticket) {
       </div>
       <!-- Footer -->
       <!-- Footer -->
-       <div class="index-footer">
+      <div class="index-footer">
         <?php include 'footer.php'; ?>
 
-       </div>
-      
+      </div>
+
     </div>
   <?php else: ?>
 
@@ -316,53 +365,53 @@ if ($ticket) {
 
     <!-- Bottom Sheet: Payment Control -->
     <footer class="payment-sheet" id="paymentSheet">
-    <section class="status-section">
-      <div class="payment-info-card" <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'style="display:none;"' : ''; ?>>
-        <?php
-        $feePaid = 0.00;
-        $validTo = null;
-        $validFrom = $entry_time ? $entry_time->format('Y-m-d H:i:s') : null;
+      <section class="status-section">
+        <div class="payment-info-card" <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'style="display:none;"' : ''; ?>>
+          <?php
+          $feePaid = 0.00;
+          $validTo = null;
+          $validFrom = $entry_time ? $entry_time->format('Y-m-d H:i:s') : null;
 
-        if (isset($ticket['api_data'])) {
-          // API returns fee in grosze (usually), need to confirm. user implies 30.00. 
-          // Let's assume the API returns standard unit or handled logic. 
-          // Wait, earlier we assumed pennies for FEE (div by 100).
-          // If user says "30.00", and FEE_PAID is int64, logic dictates it's likely pennies or the raw value.
-          // Let's safe bet: If it's huge (>1000 without decimal), divide by 100. If small, use as is. 
-          // Or stick to assumed convection (usually pennies). If user input "30.00", that implies standard currency.
-          // Given previous steps used /100 for FEE, I'll use /100 for FEE_PAID.
-          $feePaidRaw = $ticket['api_data']['FEE_PAID'] ?? 0;
-          $feePaid = $feePaidRaw / 100;
+          if (isset($ticket['api_data'])) {
+            // API returns fee in grosze (usually), need to confirm. user implies 30.00. 
+            // Let's assume the API returns standard unit or handled logic. 
+            // Wait, earlier we assumed pennies for FEE (div by 100).
+            // If user says "30.00", and FEE_PAID is int64, logic dictates it's likely pennies or the raw value.
+            // Let's safe bet: If it's huge (>1000 without decimal), divide by 100. If small, use as is. 
+            // Or stick to assumed convection (usually pennies). If user input "30.00", that implies standard currency.
+            // Given previous steps used /100 for FEE, I'll use /100 for FEE_PAID.
+            $feePaidRaw = $ticket['api_data']['FEE_PAID'] ?? 0;
+            $feePaid = $feePaidRaw / 100;
 
-          // Fix: Use DATE (Calculation "Stop" Date) if available, otherwise fallback to VALID_TO
-          // User verified that VALID_TO is start/grace period, DATE is the correct stop time.
-          $validToRaw = $ticket['api_data']['VALID_TO'] ?? $ticket['api_data']['DATE'] ?? null;
+            // Fix: Use DATE (Calculation "Stop" Date) if available, otherwise fallback to VALID_TO
+            // User verified that VALID_TO is start/grace period, DATE is the correct stop time.
+            $validToRaw = $ticket['api_data']['VALID_TO'] ?? null;
 
-          if ($validToRaw && $validToRaw > $validFrom) {
-            $validTo = $validToRaw;
+            if ($validToRaw && $validToRaw > $validFrom) {
+              $validTo = $validToRaw;
+            }
           }
-        }
-        ?>
+          ?>
 
-        <div class="payment-row">
-          <div class="payment-col left">
-            <span class="payment-label">Opłacono:</span>
-            <span class="payment-value" id="feePaidValue"><?php echo number_format($feePaid, 2, '.', ''); ?></span>
-          </div>
-          <div class="payment-col right">
-            <!-- Only show 'Wyjazd do' if validTo is available and > validFrom -->
-            <?php if ($validTo): ?>
-              <span id="paymentInfoExitLabel" class="payment-label">Opłacone do:</span>
-              <span id="paymentInfoExitValue" class="payment-value"><?php echo htmlspecialchars($validTo); ?></span>
-            <?php else: ?>
-              <!-- Modified: Added IDs here too for JS to target even if initially empty -->
-              <span id="paymentInfoExitLabel" class="payment-label" style="opacity: 0;">Opłacone do:</span>
-              <span id="paymentInfoExitValue" class="payment-value" style="opacity: 0;">-</span>
-            <?php endif; ?>
+          <div class="payment-row">
+            <div class="payment-col left">
+              <span class="payment-label">Opłacono:</span>
+              <span class="payment-value" id="feePaidValue"><?php echo number_format($feePaid, 2, '.', ''); ?></span>
+            </div>
+            <div class="payment-col right">
+              <!-- Only show 'Wyjazd do' if validTo is available and > validFrom -->
+              <?php if ($validTo): ?>
+                <span id="paymentInfoExitLabel" class="payment-label">Opłacone do:</span>
+                <span id="paymentInfoExitValue" class="payment-value"><?php echo htmlspecialchars($validTo); ?></span>
+              <?php else: ?>
+                <!-- Modified: Added IDs here too for JS to target even if initially empty -->
+                <span id="paymentInfoExitLabel" class="payment-label" style="opacity: 0;">Opłacone do:</span>
+                <span id="paymentInfoExitValue" class="payment-value" style="opacity: 0;">-</span>
+              <?php endif; ?>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
       <button id="payButton" class="btn-primary" <?php echo $fee <= 0 ? 'disabled' : ''; ?>>
         <?php echo $fee > 0 ? 'Zapłać ' . number_format($fee, 2) . ' ' . $config['settings']['currency'] : 'Wyjazd bez opłaty'; ?>
       </button>
@@ -424,7 +473,7 @@ if ($ticket) {
           <input type="text" id="plateSheetInput" class="plate-sheet-input" maxlength="10" placeholder="Numer rej."
             style="width: 100%; text-align: center; font-size: 24px; letter-spacing: 2px; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
         </div>
-        
+
         <div class="modal-actions">
           <button class="btn-secondary" id="cancelPlateEdit">Anuluj</button>
           <button class="btn-primary" id="savePlateBtn">Zatwierdź</button>
@@ -510,7 +559,7 @@ if ($ticket) {
     };
     const IS_PAID = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
     const ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";
-    let ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:s') : ''; ?>";
+    let ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:00') : ''; ?>";
 
     // Detect "New Ticket" (Pre-booking) state
     // If created < 1 minute ago AND not paid, assume new.

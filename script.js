@@ -614,10 +614,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const totalMinutes = Math.max(0, Math.floor(diffMs / 60000));
 
                 // Set loading state and fetch fee after a short delay to ensure UI is ready
-                setLoadingState();
-                setTimeout(() => {
-                    fetchCalculatedFee(totalMinutes);
-                }, 100);
+                // setLoadingState();
+                // setTimeout(() => {
+                //    fetchCalculatedFee(totalMinutes);
+                // }, 100);
+                // FIX: Skip redundant fetch. Server already pre-calculated the fee for Daily mode.
+                // We rely on INITIAL_FEE passed from PHP.
+
             }
         } else if (currentDurationMode === 'multi_day') {
             // For daily + multi_day + from_entry, initialize with +1 day and same hour
@@ -1054,7 +1057,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     action: 'calculate_fee',
                     ticket_id: effectiveId,
                     extension_minutes: extensionMinutes,
-                    entry_time: ENTRY_TIME
+                    // Force seconds to 00
+                    entry_time: ENTRY_TIME.substring(0, 16) + ':00'
                 })
             });
 
@@ -1189,7 +1193,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     action: 'pay',
                     ticket_id: effectiveId,
                     amount: currentFee,
-                    entry_time: ENTRY_TIME,
+                    // Force seconds to 00
+                    entry_time: ENTRY_TIME.substring(0, 16) + ':00',
                     exit_time: formatDateTime(currentExitTime)
                 })
             });

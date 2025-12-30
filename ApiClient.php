@@ -168,8 +168,11 @@ class ApiClient
         // Logic: Backend calculates fee from DATE_FROM to DATE_TO.
         // If not provided, we default to NOW for both, which usually implies "check status at this moment".
         // However, for fee calculation, caller must provide valid range.
-        $dateFrom = $dateFrom ?? date('Y-m-d H:i:s');
-        $dateTo = $dateTo ?? date('Y-m-d H:i:s');
+        $dateFrom = $dateFrom ?? date('Y-m-d H:i:00');
+        // $dateTo = $dateTo ?? date('Y-m-d H:i:00');
+
+        // end of the day
+        $dateTo = $dateTo ?? date('Y-m-d 23:59:59');
         $barcode = trim($barcode);
 
         // API expects BARCODE field, which handles both Ticket ID and Plate Number intelligently on the server side.
