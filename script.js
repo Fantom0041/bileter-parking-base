@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ISTNIEJĄCY BILET PARKINGOWY ---
     let currentFee = INITIAL_FEE;
+    let lastReceiptNumber = null;
     let addedMinutes = 0;
     let debounceTimer = null;
 
@@ -1219,9 +1220,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 // Display Receipt Number if available, or fallback text
                 if (data.receipt_number) {
-                    qrCode.innerText = `PARAGON: ${data.receipt_number}`;
+                    qrCode.innerHTML = `<span style="font-size:18px; font-weight:700">PARAGON<br>${data.receipt_number}</span>`;
+                    lastReceiptNumber = data.receipt_number;
                 } else if (data.new_qr_code) {
                     qrCode.innerText = data.new_qr_code;
+                    // Try to extract number if format is REC-123
+                    if(data.new_qr_code.startsWith('REC-')) {
+                         lastReceiptNumber = data.new_qr_code.split('-')[1];
+                    }
                 } else {
                     qrCode.innerText = "OPŁACONO";
                 }
@@ -1346,6 +1352,19 @@ document.addEventListener('DOMContentLoaded', () => {
         plateInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 savePlate();
+            }
+        });
+    }
+
+    // 5. Handle PDF Download on Success Overlay Click
+    const successTicketContainer = document.getElementById('successTicketContainer');
+    if (successTicketContainer) {
+        successTicketContainer.addEventListener('click', () => {
+            if (lastReceiptNumber) {
+                // Trigger download via GET request
+                window.location.href = `api.php?action=download_receipt&receipt_number=${lastReceiptNumber}`;
+            } else {
+                alert('Numer paragonu nie jest dostępny.');
             }
         });
     }

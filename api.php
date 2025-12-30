@@ -36,7 +36,10 @@ if (empty($rawInput) && php_sapi_name() === 'cli') {
     $rawInput = file_get_contents('php://stdin');
 }
 $input = json_decode($rawInput, true);
-$action = $input['action'] ?? 'pay';
+
+// Allow handling GET parameters for download actions
+$action = $input['action'] ?? $_GET['action'] ?? 'pay';
+
 
 if ($action === 'create') {
     // "Create" here actually corresponds to "Start Session" from the UI.
@@ -252,6 +255,43 @@ if ($action === 'set_plate') {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     exit;
+}
+
+
+if ($action === 'download_receipt') {
+    $receipt_number = $input['receipt_number'] ?? $_GET['receipt_number'] ?? null;
+
+    if (!$receipt_number) {
+        die('Brak numeru paragonu.');
+    }
+
+    try {
+        $client = new ApiClient($config);
+        $loginResult = $client->login();
+
+        if (!$loginResult['success']) {
+            die("Błąd logowania API");
+        }
+
+        // For download, we might use $_GET params mostly, but logic is same
+        $pdfResult = $client->getPaymentPdf($receipt_number);
+
+        if ($pdfResult['success'] && !empty($pdfResult['file'])) {
+            $fileContent = base64_decode($pdfResult['file']);
+
+            // Serve PDF file
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="paragon_' . $receipt_number . '.pdf"');
+            header('Content-Length: ' . strlen($fileContent));
+            echo $fileContent;
+            exit;
+        } else {
+            die("Błąd pobierania PDF: " . ($pdfResult['error'] ?? 'Brak danych pliku'));
+        }
+
+    } catch (Exception $e) {
+        die("Błąd systemu: " . $e->getMessage());
+    }
 }
 
 // Opłacenie istniejącego biletu

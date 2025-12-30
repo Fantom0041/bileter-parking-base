@@ -338,8 +338,56 @@ class ApiClient
 
 
 
+
+    /**
+     * Pobranie PDF z potwierdzeniem płatności
+     * @param int|string $receiptNumber Numer paragonu
+     * @return array ['success' => bool, 'file' => string (base64), 'error' => string]
+     */
+    public function getPaymentPdf($receiptNumber)
+    {
+        if (!$this->loginId) {
+            return ['success' => false, 'error' => 'Nie zalogowano'];
+        }
+
+        $request = [
+            'METHOD' => 'PARK_TICKET_GET_PAYMENT_PDF',
+            'ORDER_ID' => $this->getNextOrderId(),
+            'LOGIN_ID' => $this->loginId,
+            'RECEIPT_NUMBER' => (int) $receiptNumber
+        ];
+
+        $this->logger->log('getPaymentPdf request: ' . json_encode($request));
+
+        $response = $this->sendRequest($request);
+
+        // Do not log the full file content as it's a huge base64 string
+        $logResponse = $response;
+        if (isset($logResponse['FILE'])) {
+            $logResponse['FILE'] = '[BASE64 DATA OMITTED]';
+        }
+        $this->logger->log('getPaymentPdf response: ' . json_encode($logResponse));
+
+        if ($response === false) {
+            return ['success' => false, 'error' => 'Błąd połączenia z API'];
+        }
+
+        if (isset($response['STATUS']) && $response['STATUS'] == 0) {
+            return [
+                'success' => true,
+                'file' => $response['FILE'] ?? ''
+            ];
+        } else {
+            return [
+                'success' => false,
+                'error' => $this->getErrorMessage($response['STATUS'] ?? -999)
+            ];
+        }
+    }
+
     /**
      * Wyślij żądanie do API z automatycznym ponowieniem w przypadku błędu autoryzacji (-13)
+
      * @param array $data Dane żądania
      * @param bool $retryAllowed Czy dozwolone jest ponowienie (zapobiega pętli)
      * @return array|false Odpowiedź z API lub false w przypadku błędu
