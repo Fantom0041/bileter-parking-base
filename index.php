@@ -104,7 +104,16 @@ if ($ticket) {
     $interval = $entry_time->diff($current_time);
     $duration_minutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
 
-    if ($duration_minutes <= $config['settings']['free_minutes']) {
+    // Check for explicit API Fee first
+    $apiFeeRaw = isset($ticket['api_data']['FEE']) ? floatval($ticket['api_data']['FEE']) : 0;
+    $apiFeePaidRaw = isset($ticket['api_data']['FEE_PAID']) ? floatval($ticket['api_data']['FEE_PAID']) : 0;
+    
+    // If API reports a fee, trust it (ignoring local free minutes check if needed)
+    // Note: API returns fee in lowest unit (grosze), usually.
+    if ($apiFeeRaw > 0) {
+        $fee = ($apiFeeRaw - $apiFeePaidRaw) / 100.0;
+        $status_message = "Aktywne (Opłata wyliczona przez system)";
+    } elseif ($duration_minutes <= $config['settings']['free_minutes']) {
       $fee = 0;
       $is_free_period = true;
       $status_message = "Okres bezpłatny (" . ($config['settings']['free_minutes'] - $duration_minutes) . " min pozostało)";
@@ -543,8 +552,8 @@ if ($ticket) {
       ?>,
       fee_type_raw: <?php echo isset($ticket['api_data']['FEE_TYPE']) ? $ticket['api_data']['FEE_TYPE'] : 'null'; ?>,
       is_new: <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'true' : 'false'; ?>,
-      fee_paid: <?php echo isset($ticket['api_data']['FEE_PAID']) ? $ticket['api_data']['FEE_PAID'] : 0; ?>,
-      ticket_exist: <?php echo isset($ticket['api_data']['TICKET_EXIST']) ? $ticket['api_data']['TICKET_EXIST'] : 0; ?>,
+      fee_paid: <?php echo isset($ticket['api_data']['FEE_PAID']) ? json_encode($ticket['api_data']['FEE_PAID']) : 0; ?>,
+      ticket_exist: <?php echo isset($ticket['api_data']['TICKET_EXIST']) ? json_encode($ticket['api_data']['TICKET_EXIST']) : 0; ?>,
       ticket_barcode: <?php echo isset($ticket['api_data']['BARCODE']) ? json_encode($ticket['api_data']['BARCODE']) : 'null'; ?>
     };
 

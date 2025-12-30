@@ -1235,3 +1235,10 @@ body {
 .btn-secondary:hover {
     background: #EEEEEE;
 }
+
+
+@media (min-width: 768px) {
+    .payment-sheet {
+        width: 425px;
+    }
+}

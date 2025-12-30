@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const plate = document.getElementById('plateInput').value;
             const btn = newTicketForm.querySelector('button');
             const originalText = btn.innerText;
-            btn.innerText = 'Tworzenie...';
+            btn.innerText = 'Ładowanie...';
             btn.disabled = true;
 
             try {
@@ -1124,9 +1124,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Note: We check if feePaid > 0. The user log showed FEE_PAID: "24000" (grosze).
         // Since INITIAL_FEE was likely checked against this, if currentFee is 0, it means no *extra* fee.
-        // If we have a paid history, show "0.00" in glass style.
+        // If we have a paid history, show "0,00" in glass style.
         if (ticketExist && feePaid > 0) {
-             payButton.textContent = "0.00 " + CONFIG.currency;
+             payButton.textContent = "Do zapłaty: 0,00 " + CONFIG.currency;
              payButton.classList.add('btn-glass');
              payButton.disabled = true; // Still disabled as there's nothing to pay
         } else {
@@ -1426,4 +1426,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeRoundSlider();
     // Initialize UI
     initializeUI();
+    // Update Pay Button state based on initial PHP values
+    updatePayButton();
 });
