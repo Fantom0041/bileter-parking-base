@@ -1119,14 +1119,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (currentFee > 0) {
-            payButton.innerText = `Zapłać ${currentFee.toFixed(2)} zł`;
-            payButton.disabled = false;
+        if (currentFee <= 0) {
+        // Check if ticket is paid and exists (Liquid Glass CTA)
+        const feePaid = API_SETTINGS.fee_paid || 0;
+        const ticketExist = API_SETTINGS.ticket_exist == 1;
+
+        // Note: We check if feePaid > 0. The user log showed FEE_PAID: "24000" (grosze).
+        // Since INITIAL_FEE was likely checked against this, if currentFee is 0, it means no *extra* fee.
+        // If we have a paid history, show "0.00" in glass style.
+        if (ticketExist && feePaid > 0) {
+             payButton.textContent = "0.00 " + CONFIG.currency;
+             payButton.classList.add('btn-glass');
+             payButton.disabled = true; // Still disabled as there's nothing to pay
         } else {
-            payButton.innerText = 'Wyjazd bez opłaty';
-            payButton.disabled = false;
+             payButton.textContent = "Wyjazd bez opłaty";
+             payButton.classList.remove('btn-glass');
+             payButton.disabled = true;
         }
-    }
+    } else {
+        payButton.textContent = "Zapłać " + currentFee.toFixed(2) + " " + CONFIG.currency;
+        payButton.classList.remove('btn-glass');
+        payButton.disabled = false;
+    }    }
 
     // 3. Obsługa płatności
     payButton.addEventListener('click', async () => {

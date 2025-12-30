@@ -466,6 +466,8 @@ if ($ticket) {
       ?>,
       fee_type_raw: <?php echo isset($ticket['api_data']['FEE_TYPE']) ? $ticket['api_data']['FEE_TYPE'] : 'null'; ?>,
       is_new: <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'true' : 'false'; ?>,
+      fee_paid: <?php echo isset($ticket['api_data']['FEE_PAID']) ? $ticket['api_data']['FEE_PAID'] : 0; ?>,
+      ticket_exist: <?php echo isset($ticket['api_data']['TICKET_EXIST']) ? $ticket['api_data']['TICKET_EXIST'] : 0; ?>,
       ticket_barcode: <?php echo isset($ticket['api_data']['BARCODE']) ? json_encode($ticket['api_data']['BARCODE']) : 'null'; ?>
     };
 

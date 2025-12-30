@@ -443,7 +443,7 @@ body {
     color: var(--primary);
     text-transform: uppercase;
     font-weight: 700;
-    
+
     letter-spacing: 0.5px;
 }
 
@@ -626,10 +626,17 @@ body {
 }
 
 .btn-primary:disabled {
-    background: #E0E0E0;
-    color: #9E9E9E;
-    box-shadow: none;
     cursor: not-allowed;
+}
+
+.btn-glass {
+    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.2)) !important;
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.1) !important;
+    opacity: 0.9 !important;
 }
 
 /* Success Overlay */
