@@ -172,8 +172,11 @@ if ($ticket) {
       </div>
       <!-- Footer -->
       <!-- Footer -->
-      <?php include 'footer.php'; ?>
+       <div class="index-footer">
+        <?php include 'footer.php'; ?>
 
+       </div>
+      
     </div>
   <?php else: ?>
 
@@ -218,14 +221,13 @@ if ($ticket) {
     <!-- Expanded Entry Time (Hidden by default) -->
     <section class="exit-time-section" id="entryExpanded" style="display: none;">
       <div class="glass-container">
-   
+
         <!-- Your content -->
         <div class="glass-content">
           <span class="label" style="color: var(--success);">Start</span>
-          <div class="exit-time-card"
-           >
-            
-           
+          <div class="exit-time-card">
+
+
             <div class="exit-time-display">
               <button class="exit-time-btn" id="entryDateBtn">
                 <span class="exit-label">Data</span>
@@ -261,15 +263,15 @@ if ($ticket) {
     <!-- Expanded Exit Time Display (Default) -->
     <section class="exit-time-section" id="exitExpanded">
       <div class="glass-container">
-       
 
-      
+
+
 
         <!-- Your content -->
         <div class="glass-content">
-           <span class="label">Stop</span>
+          <span class="label">Stop</span>
           <div class="exit-time-card">
-           
+
             <div class="exit-time-display">
               <button class="exit-time-btn" id="exitDateBtn">
                 <span class="exit-label">Data</span>
@@ -402,27 +404,25 @@ if ($ticket) {
 
 
 
-    <!-- Plate Edit Bottom Sheet -->
-    <div class="sheet-backdrop" id="plateEditBackdrop"></div>
-    <div class="bottom-sheet-container" id="plateEditSheet">
-      <div class="sheet-header">
-        <h3>Edytuj numer rejestracyjny</h3>
-        <button class="close-sheet-btn" id="closePlateSheetBtn">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-      <div class="sheet-content">
-        <div class="plate-edit-wrapper">
+    <!-- Plate Edit Modal -->
+    <div class="modal-overlay" id="plateEditModal">
+      <div class="modal-card">
+        <div class="sheet-header" style="margin-bottom: 20px;">
+          <h3 style="margin:0;">Edytuj numer rejestracyjny</h3>
+        </div>
+
+        <div class="plate-edit-wrapper" style="margin-bottom: 20px;">
           <div class="plate-blue small">
             <span>PL</span>
           </div>
-          <input type="text" id="plateSheetInput" class="plate-sheet-input" maxlength="10" placeholder="Numer rej.">
+          <input type="text" id="plateSheetInput" class="plate-sheet-input" maxlength="10" placeholder="Numer rej."
+            style="width: 100%; text-align: center; font-size: 24px; letter-spacing: 2px; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
         </div>
-        <p class="sheet-hint">Wprowadź poprawny numer rejestracyjny pojazdu.</p>
-        <button id="savePlateBtn" class="btn-primary">Zatwierdź</button>
+        
+        <div class="modal-actions">
+          <button class="btn-secondary" id="cancelPlateEdit">Anuluj</button>
+          <button class="btn-primary" id="savePlateBtn">Zatwierdź</button>
+        </div>
       </div>
     </div>
 

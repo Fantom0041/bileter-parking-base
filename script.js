@@ -304,7 +304,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const entryCollapsed = document.getElementById('entryCollapsed');
         if (entryCollapsed && editEntryBtn) {
             entryCollapsed.addEventListener('click', () => {
-                 editEntryBtn.click();
+                 if (window.getComputedStyle(editEntryBtn).display !== 'none') {
+                     editEntryBtn.click();
+                 }
             });
         }
 
@@ -320,8 +322,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Make the entire collapsed Exit component clickable
         if (exitCollapsed && editExitBtnCollapsed) {
             exitCollapsed.addEventListener('click', () => {
-                // Only trigger if enabled (visible check is implicit as click won't happen if hidden, but verifying state is good)
-                 editExitBtnCollapsed.click();
+                // Only trigger if enabled
+                 if (window.getComputedStyle(editExitBtnCollapsed).display !== 'none') {
+                     editExitBtnCollapsed.click();
+                 }
             });
         }
 
@@ -1236,19 +1240,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Edycja numeru rejestracyjnego - Bottom Sheet Implementation
+    // 4. Edycja numeru rejestracyjnego - Modal Implementation
     const plateDisplay = document.getElementById('plateDisplay');
     const licensePlateContainer = document.getElementById('licensePlateContainer');
     const editPlateBtn = document.getElementById('editPlateBtn'); // Keep reference if it exists
 
-    // Sheet Elements
-    const plateEditSheet = document.getElementById('plateEditSheet');
-    const plateEditBackdrop = document.getElementById('plateEditBackdrop');
-    const closePlateSheetBtn = document.getElementById('closePlateSheetBtn');
+    // Modal Elements
+    const plateEditModal = document.getElementById('plateEditModal');
     const plateSheetInput = document.getElementById('plateSheetInput');
     const savePlateBtn = document.getElementById('savePlateBtn');
+    const cancelPlateEditBtn = document.getElementById('cancelPlateEdit');
 
-    // Modal Elements
+    // Confirmation Modal Elements
     const plateConfirmModal = document.getElementById('plateConfirmModal');
     const confirmPlateValue = document.getElementById('confirmPlateValue');
     const cancelPlateChange = document.getElementById('cancelPlateChange');
@@ -1256,54 +1259,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let pendingNewPlate = "";
 
-    function openPlateSheet() {
-        if (!plateEditSheet) return;
+    function openPlateModal() {
+        if (!plateEditModal) return;
         
         // Populate input with current value
         if (plateDisplay) {
             plateSheetInput.value = plateDisplay.innerText.trim();
         }
         
-        // Show sheet
-        plateEditBackdrop.classList.add('visible');
-        plateEditSheet.classList.add('visible');
-        plateEditSheet.style.display = 'block'; // Ensure display is block for transition
+        // Show modal
+        plateEditModal.classList.add('visible');
         
         setTimeout(() => {
              plateSheetInput.focus();
         }, 100);
     }
 
-    function closePlateSheet() {
-        if (!plateEditSheet) return;
-        
-        plateEditBackdrop.classList.remove('visible');
-        plateEditSheet.classList.remove('visible');
-        
-        // Hide logic handled by CSS opacity/transform, but we can blur input
+    function closePlateModal() {
+        if (!plateEditModal) return;
+        plateEditModal.classList.remove('visible');
         plateSheetInput.blur();
     }
 
     if (licensePlateContainer) {
         licensePlateContainer.addEventListener('click', (e) => {
             // Prevent if it's supposed to be read-only (optional check)
-            openPlateSheet();
+            openPlateModal();
         });
     }
 
     if (editPlateBtn) {
         editPlateBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            openPlateSheet();
+            openPlateModal();
         });
     }
 
-    if (closePlateSheetBtn) {
-        closePlateSheetBtn.addEventListener('click', closePlateSheet);
+    if (cancelPlateEditBtn) {
+        cancelPlateEditBtn.addEventListener('click', closePlateModal);
     }
-
-    if (plateEditBackdrop) {
-        plateEditBackdrop.addEventListener('click', closePlateSheet);
+    
+    // Close on click outside (Backdrop is part of modal-overlay if clicked directly)
+    if (plateEditModal) {
+        plateEditModal.addEventListener('click', (e) => {
+            if (e.target === plateEditModal) {
+                closePlateModal();
+            }
+        });
     }
 
     // Input formatting (UpperCase)
@@ -1327,12 +1329,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (plateDisplay && val === plateDisplay.innerText.trim()) {
-                closePlateSheet();
+                closePlateModal();
                 return;
             }
 
             pendingNewPlate = val;
             
+            // Close Input Modal
+            closePlateModal();
+
             // Open Confirmation Modal
             if (confirmPlateValue) confirmPlateValue.innerText = pendingNewPlate;
             if (plateConfirmModal) plateConfirmModal.classList.add('visible');
@@ -1348,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirmPlateChange) {
         confirmPlateChange.addEventListener('click', async () => {
              if (plateConfirmModal) plateConfirmModal.classList.remove('visible');
-             closePlateSheet();
+             // No need to close plate sheet as it's already closed
              
              // Execute Change Logic
              const ticketBarcode = API_SETTINGS.ticket_barcode; // Got from PHP
@@ -1382,8 +1387,8 @@ document.addEventListener('DOMContentLoaded', () => {
                          window.location.href = currentUrl.toString();
                      } else {
                          alert('Błąd zmiany numeru: ' + data.message);
-                         // Re-open sheet?
-                         openPlateSheet();
+                         // Re-open modal?
+                         openPlateModal();
                      }
                  } catch (error) {
                      console.error(error);
