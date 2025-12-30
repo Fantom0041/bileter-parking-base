@@ -186,8 +186,7 @@ if ($ticket) {
         <div class="plate-number" id="plateDisplay">
           <?php echo htmlspecialchars($ticket['plate']); ?>
         </div>
-        <input type="text" id="plateEditInput" class="plate-input"
-          value="<?php echo htmlspecialchars($ticket['plate']); ?>" maxlength="10" style="display: none;">
+
         <button id="editPlateBtn" class="edit-icon" aria-label="Edytuj numer rejestracyjny">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -208,17 +207,16 @@ if ($ticket) {
       <!-- Collapsed Entry Time (Default) -->
       <div class="info-card-full" id="entryCollapsed" style="position: relative; cursor: pointer;">
         <span class="label">Start</span>
-        <button id="editEntryBtn" class="edit-icon" style="display: none;" aria-label="Edytuj start">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
-
-        <span class="value">
+        <span class="value" style="display: flex; align-items: center; gap: 8px;">
+          <button id="editEntryBtn" class="edit-icon" style="display: none; position: static; transform: none;"
+            aria-label="Edytuj start">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
           <span id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
         </span>
-
       </div>
     </section>
 
@@ -269,17 +267,14 @@ if ($ticket) {
     <section class="details-section" id="exitCollapsed" style="display: none; cursor: pointer;">
       <div class="info-card-full">
         <span class="label">Stop</span>
-        <button id="editExitBtnCollapsed" class="edit-icon"
-          style="position: static; transform: none; padding: 12px; margin: -12px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
         <span class="value" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
-
+          <button id="editExitBtnCollapsed" class="edit-icon" style="position: static; transform: none; padding: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
           <span id="exitTimeDisplayCollapsed">--:--</span>
-
         </span>
       </div>
     </section>
@@ -336,7 +331,7 @@ if ($ticket) {
 
           // Fix: Use DATE (Calculation "Stop" Date) if available, otherwise fallback to VALID_TO
           // User verified that VALID_TO is start/grace period, DATE is the correct stop time.
-          $validToRaw = $ticket['api_data']['DATE'] ?? $ticket['api_data']['VALID_TO'] ?? null;
+          $validToRaw = $ticket['api_data']['VALID_TO'] ?? $ticket['api_data']['DATE'] ?? null;
 
           if ($validToRaw && $validToRaw > $validFrom) {
             $validTo = $validToRaw;
@@ -352,11 +347,11 @@ if ($ticket) {
           <div class="payment-col right">
             <!-- Only show 'Wyjazd do' if validTo is available and > validFrom -->
             <?php if ($validTo): ?>
-              <span id="paymentInfoExitLabel" class="payment-label">Wyjazd do:</span>
+              <span id="paymentInfoExitLabel" class="payment-label">Opłacone do:</span>
               <span id="paymentInfoExitValue" class="payment-value"><?php echo htmlspecialchars($validTo); ?></span>
             <?php else: ?>
               <!-- Modified: Added IDs here too for JS to target even if initially empty -->
-              <span id="paymentInfoExitLabel" class="payment-label" style="opacity: 0;">Wyjazd do:</span>
+              <span id="paymentInfoExitLabel" class="payment-label" style="opacity: 0;">Opłacone do:</span>
               <span id="paymentInfoExitValue" class="payment-value" style="opacity: 0;">-</span>
             <?php endif; ?>
           </div>
@@ -431,6 +426,49 @@ if ($ticket) {
     </div>
 
 
+
+    <!-- Plate Edit Bottom Sheet -->
+    <div class="sheet-backdrop" id="plateEditBackdrop"></div>
+    <div class="bottom-sheet-container" id="plateEditSheet">
+      <div class="sheet-header">
+        <h3>Edytuj numer rejestracyjny</h3>
+        <button class="close-sheet-btn" id="closePlateSheetBtn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="sheet-content">
+        <div class="plate-edit-wrapper">
+          <div class="plate-blue small">
+            <span>PL</span>
+          </div>
+          <input type="text" id="plateSheetInput" class="plate-sheet-input" maxlength="10" placeholder="Numer rej.">
+        </div>
+        <p class="sheet-hint">Wprowadź poprawny numer rejestracyjny pojazdu.</p>
+        <button id="savePlateBtn" class="btn-primary">Zatwierdź</button>
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay" id="plateConfirmModal">
+      <div class="modal-card">
+        <div class="icon-warning">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h3>Potwierdź zmianę</h3>
+        <p>Czy na pewno chcesz zmienić numer rejestracyjny na <strong id="confirmPlateValue"></strong>?</p>
+        <div class="modal-actions">
+          <button class="btn-secondary" id="cancelPlateChange">Anuluj</button>
+          <button class="btn-primary" id="confirmPlateChange">Zatwierdź</button>
+        </div>
+      </div>
+    </div>
 
     </div>
   <?php endif; ?>

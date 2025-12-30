@@ -223,7 +223,8 @@ if ($action === 'set_plate') {
     $ticket_id = $input['ticket_id'] ?? null; // This should be the BARCODE
     $new_plate = $input['new_plate'] ?? null;
 
-    if (!$ticket_id || !$new_plate) {
+    // Allow '0' as valid ticket_id/barcode
+    if (($ticket_id === null || $ticket_id === '') || ($new_plate === null || $new_plate === '')) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Brak wymaganych danych (ticket_id, new_plate)']);
         exit;

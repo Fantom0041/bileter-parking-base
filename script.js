@@ -1016,18 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
         }
 
-        // --- NEW CODE: Update "Wyjazd do" in Payment Info Card ---
-        const paymentInfoExitLabel = document.getElementById('paymentInfoExitLabel');
-        const paymentInfoExitValue = document.getElementById('paymentInfoExitValue');
-        
-        if (paymentInfoExitLabel && paymentInfoExitValue) {
-            // Format: YYYY-MM-DD HH:mm:ss to match PHP format or simplified
-            paymentInfoExitValue.textContent = `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
-            
-            // Ensure they are visible (opacity 1)
-            paymentInfoExitLabel.style.opacity = '1';
-            paymentInfoExitValue.style.opacity = '1';
-        }
+
     }
 
     function setLoadingState() {
@@ -1247,112 +1236,164 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Edycja numeru rejestracyjnego
-    const editPlateBtn = document.getElementById('editPlateBtn');
+    // 4. Edycja numeru rejestracyjnego - Bottom Sheet Implementation
     const plateDisplay = document.getElementById('plateDisplay');
-    const plateInput = document.getElementById('plateEditInput');
-
     const licensePlateContainer = document.getElementById('licensePlateContainer');
+    const editPlateBtn = document.getElementById('editPlateBtn'); // Keep reference if it exists
 
-    if (editPlateBtn && plateDisplay && plateInput) {
+    // Sheet Elements
+    const plateEditSheet = document.getElementById('plateEditSheet');
+    const plateEditBackdrop = document.getElementById('plateEditBackdrop');
+    const closePlateSheetBtn = document.getElementById('closePlateSheetBtn');
+    const plateSheetInput = document.getElementById('plateSheetInput');
+    const savePlateBtn = document.getElementById('savePlateBtn');
+
+    // Modal Elements
+    const plateConfirmModal = document.getElementById('plateConfirmModal');
+    const confirmPlateValue = document.getElementById('confirmPlateValue');
+    const cancelPlateChange = document.getElementById('cancelPlateChange');
+    const confirmPlateChange = document.getElementById('confirmPlateChange');
+
+    let pendingNewPlate = "";
+
+    function openPlateSheet() {
+        if (!plateEditSheet) return;
+        
+        // Populate input with current value
+        if (plateDisplay) {
+            plateSheetInput.value = plateDisplay.innerText.trim();
+        }
+        
+        // Show sheet
+        plateEditBackdrop.classList.add('visible');
+        plateEditSheet.classList.add('visible');
+        plateEditSheet.style.display = 'block'; // Ensure display is block for transition
+        
+        setTimeout(() => {
+             plateSheetInput.focus();
+        }, 100);
+    }
+
+    function closePlateSheet() {
+        if (!plateEditSheet) return;
+        
+        plateEditBackdrop.classList.remove('visible');
+        plateEditSheet.classList.remove('visible');
+        
+        // Hide logic handled by CSS opacity/transform, but we can blur input
+        plateSheetInput.blur();
+    }
+
+    if (licensePlateContainer) {
+        licensePlateContainer.addEventListener('click', (e) => {
+            // Prevent if it's supposed to be read-only (optional check)
+            openPlateSheet();
+        });
+    }
+
+    if (editPlateBtn) {
         editPlateBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            plateDisplay.style.display = 'none';
-            plateInput.style.display = 'block';
-            plateInput.focus();
-            editPlateBtn.style.display = 'none';
+            openPlateSheet();
+        });
+    }
+
+    if (closePlateSheetBtn) {
+        closePlateSheetBtn.addEventListener('click', closePlateSheet);
+    }
+
+    if (plateEditBackdrop) {
+        plateEditBackdrop.addEventListener('click', closePlateSheet);
+    }
+
+    // Input formatting (UpperCase)
+    if (plateSheetInput) {
+        plateSheetInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
         });
         
-        if (licensePlateContainer) {
-            licensePlateContainer.addEventListener('click', () => {
-                // If input is not visible and button is visible (or effectively active)
-                if (plateInput.style.display === 'none' || plateInput.style.display === '') {
-                     editPlateBtn.click();
-                }
-            });
-        }
-        
-        plateInput.addEventListener('click', (e) => {
-            e.stopPropagation();
+        plateSheetInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                savePlateBtn.click();
+            }
         });
+    }
 
-        async function savePlate() {
-            const newPlate = plateInput.value.toUpperCase();
-            if (newPlate.trim() !== "" && newPlate !== plateDisplay.innerText.trim()) {
-                const ticketBarcode = API_SETTINGS.ticket_barcode; // Got from PHP
-
-                // If we have a numeric barcode > 0, we use SET_PLATE
-                // Note: API returns BARCODE as string, so we convert to verify > 0
-                // Assuming "numeric" means it looks like a number.
-                // The protocol says "jesli jest > 0".
-                const isBarcodeValid = ticketBarcode && !isNaN(ticketBarcode) && Number(ticketBarcode) > 0;
-
-                if (isBarcodeValid) {
-                    // Call API to set plate
-                    const originalIcon = editPlateBtn.innerHTML;
-                    editPlateBtn.innerHTML = '...'; // Spinner placeholder
-                    
-                    try {
-                        const response = await fetch('api.php', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                action: 'set_plate', 
-                                ticket_id: ticketBarcode,
-                                new_plate: newPlate
-                            })
-                        });
-
-                        const data = await response.json();
-
-                        if (data.success) {
-                            // Update display and toggle back
-                            plateDisplay.innerText = newPlate;
-                            // Also update URL without reload if possible? 
-                            // Or just reload to be safe/consistent? 
-                            // "do zmiany powiazaniu numeru ... jesli barcode > 0"
-                            // If we change it successfully, the current page/ticket is still valid but has new plate.
-                            // We should probably just update the UI.
-                            plateDisplay.style.display = 'flex';
-                            plateInput.style.display = 'none';
-                            editPlateBtn.style.display = 'flex';
-                            editPlateBtn.innerHTML = originalIcon;
-                            
-                            // Update TICKET_ID in URL for consistency if it was using plate?
-                            // But here TICKET_ID (PHP) might be the barcode or old plate.
-                            // If we loaded by TicketID (Barcode), URL doesn't change.
-                            // If we loaded by Plate, URL might be old plate.
-                            // Let's reload to be safe and ensure everything syncs, UNLESS we want "seamless"
-                            // User requirement: "Tylko wtedy kiedy BARCODE ... > 0."
-                            // It doesn't strictly say "no reload", but logical for "set" is to stay.
-                        } else {
-                            alert('Błąd zmiany numeru: ' + data.message);
-                            // Revert?
-                            plateInput.focus();
-                            editPlateBtn.innerHTML = originalIcon;
-                        }
-                    } catch (error) {
-                        console.error(error);
-                        alert('Błąd komunikacji: ' + error.message);
-                        editPlateBtn.innerHTML = originalIcon;
-                    }
-                } else {
-                    // Fallback to old behavior: Reload with new plate as ID
-                    window.location.href = `index.php?ticket_id=${encodeURIComponent(newPlate)}`;
-                }
+    if (savePlateBtn) {
+        savePlateBtn.addEventListener('click', () => {
+            const val = plateSheetInput.value.trim().toUpperCase();
+            if (val.length < 2) {
+                alert('Numer rejestracyjny jest za krótki.');
                 return;
             }
-            // If no change or empty, just toggle back
-            plateDisplay.style.display = 'flex';
-            plateInput.style.display = 'none';
-            editPlateBtn.style.display = 'flex';
-        }
-
-        plateInput.addEventListener('blur', savePlate);
-        plateInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                savePlate();
+            if (plateDisplay && val === plateDisplay.innerText.trim()) {
+                closePlateSheet();
+                return;
             }
+
+            pendingNewPlate = val;
+            
+            // Open Confirmation Modal
+            if (confirmPlateValue) confirmPlateValue.innerText = pendingNewPlate;
+            if (plateConfirmModal) plateConfirmModal.classList.add('visible');
+        });
+    }
+
+    if (cancelPlateChange) {
+        cancelPlateChange.addEventListener('click', () => {
+             if (plateConfirmModal) plateConfirmModal.classList.remove('visible');
+        });
+    }
+
+    if (confirmPlateChange) {
+        confirmPlateChange.addEventListener('click', async () => {
+             if (plateConfirmModal) plateConfirmModal.classList.remove('visible');
+             closePlateSheet();
+             
+             // Execute Change Logic
+             const ticketBarcode = API_SETTINGS.ticket_barcode; // Got from PHP
+             
+             // Check if we have a numeric barcode greater than 0
+             const isBarcodeValid = ticketBarcode && !isNaN(ticketBarcode) && Number(ticketBarcode) > 0;
+             
+             if (isBarcodeValid) {
+                 // Call API to set plate
+                 const originalText = confirmPlateChange.innerText;
+                 confirmPlateChange.innerText = 'Zapisywanie...';
+                 confirmPlateChange.disabled = true;
+
+                 try {
+                     const response = await fetch('api.php', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ 
+                             action: 'set_plate', 
+                             ticket_id: ticketBarcode,
+                             new_plate: pendingNewPlate
+                         })
+                     });
+
+                     const data = await response.json();
+
+                     if (data.success) {
+                         // Reload to refresh all data
+                         location.reload();
+                     } else {
+                         alert('Błąd zmiany numeru: ' + data.message);
+                         // Re-open sheet?
+                         openPlateSheet();
+                     }
+                 } catch (error) {
+                     console.error(error);
+                     alert('Błąd komunikacji: ' + error.message);
+                 } finally {
+                     confirmPlateChange.innerText = originalText;
+                     confirmPlateChange.disabled = false;
+                 }
+             } else {
+                 // Legacy / New Ticket Mode: Reload with new ID
+                 window.location.href = `index.php?ticket_id=${encodeURIComponent(pendingNewPlate)}`;
+             }
         });
     }
 
