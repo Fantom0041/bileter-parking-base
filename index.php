@@ -200,7 +200,7 @@ if ($ticket) {
 
     <!-- Details Grid -->
     <section class="details-section">
-      <div class="info-card-full" style="padding-right: 50px;">
+      <div class="info-card-full">
         <span class="label">Strefa</span>
         <span class="value"><?php echo htmlspecialchars($config['settings']['station_id']); ?></span>
       </div>
@@ -208,15 +208,19 @@ if ($ticket) {
       <!-- Collapsed Entry Time (Default) -->
       <div class="info-card-full" id="entryCollapsed" style="position: relative;">
         <span class="label">Start</span>
-        <span class="value" style="padding-right: 30px;">
-          <span id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
-        </span>
-        <button id="editEntryBtn" class="edit-icon" style="display: none;">
+        <button id="editEntryBtn" class="edit-icon" 
+          style="display: none;" aria-label="Edytuj start"
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
           </svg>
         </button>
+
+        <span class="value">
+          <span id="entryTimeDisplay"><?php echo $entry_time->format('Y-m-d H:i'); ?></span>
+        </span>
+        
       </div>
     </section>
 
@@ -252,15 +256,17 @@ if ($ticket) {
     <section class="details-section" id="exitCollapsed" style="display: none;">
       <div class="info-card-full">
         <span class="label">Stop</span>
-        <span class="value" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
-          <span id="exitTimeDisplayCollapsed">--:--</span>
-          <button id="editExitBtnCollapsed" class="edit-icon"
+        <button id="editExitBtnCollapsed" class="edit-icon"
             style="position: static; transform: none; padding: 12px; margin: -12px;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
+        <span class="value" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
+           
+          <span id="exitTimeDisplayCollapsed">--:--</span>
+         
         </span>
       </div>
     </section>
@@ -432,7 +438,8 @@ if ($ticket) {
       }
       ?>,
       fee_type_raw: <?php echo isset($ticket['api_data']['FEE_TYPE']) ? $ticket['api_data']['FEE_TYPE'] : 'null'; ?>,
-      is_new: <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'true' : 'false'; ?>
+      is_new: <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'true' : 'false'; ?>,
+      ticket_barcode: <?php echo isset($ticket['api_data']['BARCODE']) ? json_encode($ticket['api_data']['BARCODE']) : 'null'; ?>
     };
 
     // Override local config with API settings for logic
