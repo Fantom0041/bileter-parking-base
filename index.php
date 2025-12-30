@@ -154,6 +154,9 @@ if ($ticket) {
     <?php if (!$ticket): ?>
       <div class="error-container" style="min-height: auto; padding-top: 20px;">
 
+      <div class="login-container">
+
+      
         <h1>Rozlicz parkowanie</h1>
 
       
@@ -164,7 +167,7 @@ if ($ticket) {
           <input type="text" id="plateInput" placeholder="np. KRA 12345" maxlength="10" required>
           <button type="submit" class="btn-primary">Start</button>
         </form>
-        
+</div>
           <?php if ($error): ?>
           <div
             style="background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffcdd2;">
