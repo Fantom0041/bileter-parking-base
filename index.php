@@ -199,11 +199,6 @@ if ($ticket) {
 
     <!-- Details Grid -->
     <section class="details-section">
-      <div class="info-card-full">
-        <span class="label">Strefa</span>
-        <span class="value"><?php echo htmlspecialchars($config['settings']['station_id']); ?></span>
-      </div>
-
       <!-- Collapsed Entry Time (Default) -->
       <div class="info-card-full" id="entryCollapsed" style="position: relative; cursor: pointer;">
         <span class="label">Start</span>
@@ -223,30 +218,14 @@ if ($ticket) {
     <!-- Expanded Entry Time (Hidden by default) -->
     <section class="exit-time-section" id="entryExpanded" style="display: none;">
       <div class="glass-container">
-        <!-- Distortion layer -->
-        <div class="glass-filter"></div>
-
-        <!-- Semi-transparent base -->
-        <div class="glass-overlay"></div>
-
-        <!-- Specular highlight -->
-        <div class="glass-specular"></div>
-
+   
         <!-- Your content -->
         <div class="glass-content">
+          <span class="label" style="color: var(--success);">Start</span>
           <div class="exit-time-card"
-            style="background: rgba(0, 200, 83, 0.08); border: 2px solid rgba(0, 200, 83, 0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <span class="label" style="color: var(--success);">Start</span>
-              <button id="closeEntryExpandedBtn" class="edit-icon"
-                style="position: static; transform: none; padding: 12px; margin: -12px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
+           >
+            
+           
             <div class="exit-time-display">
               <button class="exit-time-btn" id="entryDateBtn">
                 <span class="exit-label">Data</span>
@@ -282,19 +261,15 @@ if ($ticket) {
     <!-- Expanded Exit Time Display (Default) -->
     <section class="exit-time-section" id="exitExpanded">
       <div class="glass-container">
-        <!-- Distortion layer -->
-        <div class="glass-filter"></div>
+       
 
-        <!-- Semi-transparent base -->
-        <div class="glass-overlay"></div>
-
-        <!-- Specular highlight -->
-        <div class="glass-specular"></div>
+      
 
         <!-- Your content -->
         <div class="glass-content">
+           <span class="label">Stop</span>
           <div class="exit-time-card">
-            <span class="label">Stop</span>
+           
             <div class="exit-time-display">
               <button class="exit-time-btn" id="exitDateBtn">
                 <span class="exit-label">Data</span>

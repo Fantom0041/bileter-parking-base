@@ -38,7 +38,7 @@ body {
     padding-bottom: 24px;
     padding-left: 24px;
     padding-right: 24px;
-    padding-top: 10px;
+
     padding-bottom: 80px;
     /* Space for footer */
     overflow-x: hidden;
@@ -65,6 +65,8 @@ body {
     position: relative;
     /* Context for absolute positioning if needed, or flex */
 }
+
+
 
 .header-left {
     display: flex;
@@ -125,9 +127,9 @@ body {
 .license-plate {
     background: white;
     border-radius: 8px;
-    border: 1px solid #E0E0E0;
+
     display: flex;
-    height: 64px;
+
     width: 100%;
     box-shadow: var(--shadow-soft);
     overflow: hidden;
@@ -199,7 +201,8 @@ body {
     align-items: center;
     justify-content: center;
     font-family: 'Roboto Mono', monospace;
-    font-size: 32px;
+    font-size: 20px;
+    padding: 12px 0px;
     font-weight: 500;
     letter-spacing: 2px;
     color: #000;
@@ -375,7 +378,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-bottom: 10px;
+   
 }
 
 .info-card-full {
@@ -402,15 +405,8 @@ body {
     color: var(--text-primary);
 }
 
-/* Exit Time Section */
-.exit-time-section {
-    margin-bottom: 10px;
-}
 
-/* Details Section */
-.details-section {
-    margin-bottom: 10px;
-}
+
 
 /* Animation class to be added dynamically */
 .animate-in {
@@ -431,19 +427,16 @@ body {
 }
 
 .exit-time-card {
-    background: rgba(106, 27, 154, 0.08);
-    padding: 16px;
-    border-radius: 16px;
-    border: 2px solid rgba(106, 27, 154, 0.2);
+
     position: relative;
-    margin-top: 12px;
+   
 }
 
-.exit-time-card .label {
+.glass-content .label {
     position: absolute;
-    top: -9px;
+    top: -6px;
     left: 16px;
-    background: #FBF8FC;
+
     padding: 0 6px;
     z-index: 2;
     display: block;
@@ -463,9 +456,9 @@ body {
 .exit-time-btn {
     flex: 1;
     background: white;
-    border: 2px solid rgba(106, 27, 154, 0.3);
+    border: 2px solid rgba(214, 214, 214, 0.3);
     border-radius: 12px;
-    padding: 12px;
+    padding: 5px;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
@@ -503,7 +496,7 @@ body {
 }
 
 .exit-value {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--primary);
     font-family: 'Roboto Mono', monospace;
@@ -528,27 +521,11 @@ body {
     z-index: 100;
     transition: transform 0.3s ease;
 
-    /* transparency apple liquid glass */
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(10px) saturate(120%);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    border-radius: 16px;
+  
     overflow: hidden;
 }
 
-.payment-sheet::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -20%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(120deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0) 60%);
-    transform: skewX(-10deg);
-    pointer-events: none;
-}
+
 
 .sheet-handle {
     width: 40px;
@@ -843,70 +820,23 @@ body {
 /* Liquid Glass Effect */
 .glass-container {
     position: relative;
-    border-radius: 1.5rem;
-    overflow: hidden;
-    margin-bottom: 10px;
+    border-radius: 8px;
+    padding: 16px;
+   
     /* Preserve spacing previously on section/card */
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
     /* Added strong shadow */
 }
 
-/* Distortion/refraction layer */
-.glass-filter {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    backdrop-filter: blur(0px);
-    -webkit-backdrop-filter: blur(0px);
-    filter: url(#lg-dist);
-    pointer-events: none;
+#exitCollapsed, #exitExpanded, #entryCollapsed, #entryExpanded {
+    margin-bottom: 10px;
 }
 
-/* Base translucent glass */
-.glass-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: radial-gradient(circle at top left,
-            rgba(255, 255, 255, 0.65),
-            rgba(255, 255, 255, 0.2));
-    backdrop-filter: blur(18px) saturate(180%);
-    -webkit-backdrop-filter: blur(18px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    pointer-events: none;
-}
 
-/* Specular highlight stain */
-.glass-specular {
-    position: absolute;
-    inset: -20%;
-    z-index: 2;
-    background: radial-gradient(circle at 20% 0%,
-            rgba(255, 255, 255, 0.9),
-            rgba(255, 255, 255, 0) 55%);
-    opacity: 0.7;
-    mix-blend-mode: screen;
-    pointer-events: none;
-}
 
-/* Content */
-.glass-content {
-    position: relative;
-    z-index: 3;
-    padding: 1.5rem 2rem;
-    color: var(--text-primary);
-    /* Use theme color instead of hardcoded white if needed, though glass usually implies light theme/white text or dark text depending on bg. User example had white. Let's stick to theme generally but user example had color: #fff. Given our app is light mode, #fff text might be invisible on white glass. User's example might be for dark mode or dark background. Our background is #F4F6F9. White glass on light bg... Text should be dark. */
-    /* Override user example color: #fff to var(--text-primary) for visibility on light theme */
-}
 
 /* Fix for inner elements of glass content to match original exit-time-card layout if needed */
-.glass-content .exit-time-card {
-    background: transparent !important;
-    /* Remove background from inner card if wrapped */
-    border: none !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-}
+
 
 /* Updated Spinner */
 .timer-circle {
@@ -1169,7 +1099,7 @@ body {
     text-transform: uppercase;
     text-align: center;
     color: var(--text-primary);
-    padding: 0 16px;
+
     outline: none;
     letter-spacing: 2px;
 }

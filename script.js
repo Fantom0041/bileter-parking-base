@@ -1376,8 +1376,10 @@ document.addEventListener('DOMContentLoaded', () => {
                      const data = await response.json();
 
                      if (data.success) {
-                         // Reload to refresh all data
-                         location.reload();
+                         // Reload to refresh all data with new plate in URL
+                         const currentUrl = new URL(window.location.href);
+                         currentUrl.searchParams.set('ticket_id', pendingNewPlate);
+                         window.location.href = currentUrl.toString();
                      } else {
                          alert('Błąd zmiany numeru: ' + data.message);
                          // Re-open sheet?
