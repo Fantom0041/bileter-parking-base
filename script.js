@@ -475,6 +475,27 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSpinner(totalDegrees);
     }
 
+    function updateCursors() {
+        const entryCollapsed = document.getElementById('entryCollapsed');
+        const exitCollapsed = document.getElementById('exitCollapsed');
+
+        // Entry Cursor
+        const isEntryEditable = (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) && 
+                                (API_SETTINGS.fee_type_raw != '0');
+        console.log('isEntryEditable', isEntryEditable);
+        if (entryCollapsed) {
+            entryCollapsed.style.cursor = isEntryEditable ? 'pointer' : 'default';
+        }
+
+        // Exit Cursor (Collapsed)
+        // Editable if NOT (Daily AND Single Day)
+        const isExitEditable = !(currentTimeMode === 'daily' && currentDurationMode === 'single_day');
+        
+        if (exitCollapsed) {
+            exitCollapsed.style.cursor = isExitEditable ? 'pointer' : 'default';
+        }
+    }
+
     // Initialize UI based on modes
     function initializeUI() {
         // Get exit sections
@@ -645,6 +666,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isUserInteracted && !isFixedTimeMode) {
             startRealTimeClock();
         }
+
+        updateCursors();
     }
 
     // Exit time buttons - switch between editing date or time
@@ -675,24 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSpinnerLabel() {
         // Check if we're editing entry time
         const isEditingEntry = editMode === 'entry';
-
-        if (currentTimeMode === 'daily') {
-            if (currentDurationMode === 'single_day') {
-                spinnerLabel.textContent = isEditingEntry ? 'WJAZD' : 'WYJAZD';
-            } else {
-                spinnerLabel.textContent = 'DATA';
-            }
-        } else if (currentTimeMode === 'hourly') {
-            if (currentDurationMode === 'single_day') {
-                spinnerLabel.textContent = isEditingEntry ? 'WJAZD' : 'WYJAZD';
-            } else {
-                if (currentUnit === 'days') {
-                    spinnerLabel.textContent = 'DATA';
-                } else {
-                    spinnerLabel.textContent = 'GODZINA';
-                }
-            }
-        }
+        spinnerLabel.textContent = isEditingEntry ? 'START' : 'STOP';
     }
 
     function initializeRoundSlider() {

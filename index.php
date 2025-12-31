@@ -107,12 +107,12 @@ if ($ticket) {
     // Check for explicit API Fee first
     $apiFeeRaw = isset($ticket['api_data']['FEE']) ? floatval($ticket['api_data']['FEE']) : 0;
     $apiFeePaidRaw = isset($ticket['api_data']['FEE_PAID']) ? floatval($ticket['api_data']['FEE_PAID']) : 0;
-    
+
     // If API reports a fee, trust it (ignoring local free minutes check if needed)
     // Note: API returns fee in lowest unit (grosze), usually.
     if ($apiFeeRaw > 0) {
-        $fee = ($apiFeeRaw - $apiFeePaidRaw) / 100.0;
-        $status_message = "Aktywne (Opłata wyliczona przez system)";
+      $fee = ($apiFeeRaw - $apiFeePaidRaw) / 100.0;
+      $status_message = "Aktywne (Opłata wyliczona przez system)";
     } elseif ($duration_minutes <= $config['settings']['free_minutes']) {
       $fee = 0;
       $is_free_period = true;
@@ -254,33 +254,33 @@ if ($ticket) {
         <div class="plate-number-container">
 
 
-       
-       
-        <div class="plate-number" id="plateDisplay">
+
+
+          <div class="plate-number" id="plateDisplay">
             <button id="editPlateBtn" class="edit-icon" aria-label="Edytuj numer rejestracyjny">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
-        <span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+            <span>
 
-       
-          <?php echo htmlspecialchars($ticket['plate']); ?>
-        </span>
+
+              <?php echo htmlspecialchars($ticket['plate']); ?>
+            </span>
+          </div>
         </div>
- </div>
-        
 
-       
+
+
       </div>
     </section>
 
     <!-- Details Grid -->
     <section class="details-section">
       <!-- Collapsed Entry Time (Default) -->
-      <div class="info-card-full" id="entryCollapsed" style="position: relative; cursor: pointer;">
+      <div class="info-card-full" id="entryCollapsed" style="position: relative;">
         <span class="label">Start</span>
         <span class="value" style="display: flex; align-items: center; gap: 8px;">
           <button id="editEntryBtn" class="edit-icon" style="display: none; position: static; transform: none;"
@@ -301,7 +301,7 @@ if ($ticket) {
 
         <!-- Your content -->
         <div class="glass-content">
-          <span class="label" style="color: var(--success);">Start</span>
+          <span class="label" style="color: var(--primary);">Start</span>
           <div class="exit-time-card">
 
 
@@ -322,7 +322,7 @@ if ($ticket) {
 
 
     <!-- Collapsed Exit Time (Hidden by default, shown when editing entry) -->
-    <section class="details-section" id="exitCollapsed" style="display: none; cursor: pointer;">
+    <section class="details-section" id="exitCollapsed" style="display: none;">
       <div class="info-card-full">
         <span class="label">Stop</span>
         <span class="value" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
@@ -410,6 +410,7 @@ if ($ticket) {
             // User verified that VALID_TO is start/grace period, DATE is the correct stop time.
             $validToRaw = $ticket['api_data']['VALID_TO'] ?? null;
 
+            $logger->log('Valid To Raw in Payment Info: ' . json_encode($ticket));
             if ($validToRaw && $validToRaw > $validFrom) {
               $validTo = $validToRaw;
             }

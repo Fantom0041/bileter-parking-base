@@ -56,6 +56,11 @@
     <?php include 'footer.php'; ?>
 
   </div>
+  <style>
+    .app-container {
+      padding-bottom: 24px !important;
+    }
+  </style>
 </body>
 
 </html>
