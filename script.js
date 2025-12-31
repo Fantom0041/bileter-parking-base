@@ -1024,6 +1024,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hours = String(newEntryTime.getHours()).padStart(2, '0');
                 const mins = String(newEntryTime.getMinutes()).padStart(2, '0');
 
+              
                 // Display time in spinner
                 spinnerValue.innerHTML = `${hours}:${mins}`;
 
@@ -1110,14 +1111,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const hours = String(exitTime.getHours()).padStart(2, '0');
             const mins = String(exitTime.getMinutes()).padStart(2, '0');
-
+            console.log('new exit time in spinner ', exitTime);
             // Wyświetl godzinę
             spinnerValue.innerHTML = `${hours}:${mins}`;
 
             // Update exit time display
             updateExitTimeDisplay(exitTime);
 
-            totalMinutes = selectedMinutes;
+            // Calculate total duration from entry time
+            const diffMs = exitTime - entryTime;
+            totalMinutes = Math.floor(diffMs / 60000);
             addedMinutes = totalMinutes;
         }
         // 3.4: hourly / multi_day
@@ -1156,7 +1159,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateExitTimeDisplay(exitTime);
             }
 
-            totalMinutes = selectedDays * 1440 + selectedMinutes;
+            // Calculate total duration from entry time
+            const diffMs = exitTime - entryTime;
+            totalMinutes = Math.floor(diffMs / 60000);
             addedMinutes = totalMinutes;
         }
 
@@ -1277,8 +1282,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Set new debounce timer (1000ms)
                 debounceTimer = setTimeout(() => {
-                    lastAddedMinutes = addedMinutes; // Update last fetched/sent minutes
-                    fetchCalculatedFee(addedMinutes);
+                    lastAddedMinutes = addedMinutes; // Update last fetched/sent minutes (keep logic/name or remove?)
+                    // Even if we use exitTime, tracking change via addedMinutes is fine for debounce check
+                    fetchCalculatedFee(currentExitTime);
                 }, 1000);
              }
         }
@@ -1323,6 +1329,17 @@ document.addEventListener('DOMContentLoaded', () => {
         payButton.disabled = true;
     }
 
+    // Helper to format date as YYYY-MM-DD HH:MM:SS
+    function formatDateTime(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const mins = String(date.getMinutes()).padStart(2, '0');
+        const secs = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+    }
+
     // Helper to get the most effective Ticket ID for API operations
     // Prioritizes numeric Barcode (if valid) over the initial Ticket ID (which might be a Plate)
     function getEffectiveTicketId() {
@@ -1334,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return TICKET_ID;
     }
 
-    async function fetchCalculatedFee(extensionMinutes) {
+    async function fetchCalculatedFee(exitTime) {
         try {
             const effectiveId = getEffectiveTicketId();
             const response = await fetch('api.php', {
@@ -1343,9 +1360,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     action: 'calculate_fee',
                     ticket_id: effectiveId,
-                    extension_minutes: extensionMinutes,
-                    // Force seconds to 00
-                    entry_time: ENTRY_TIME.substring(0, 16) + ':00'
+                    entry_time: ENTRY_TIME.substring(0, 16) + ':00',
+                    exit_time: typeof exitTime === 'string' ? exitTime : formatDateTime(exitTime)
                 })
             });
 
@@ -1458,16 +1474,6 @@ document.addEventListener('DOMContentLoaded', () => {
         payButton.innerText = 'Przetwarzanie...';
         payButton.disabled = true;
 
-        // Helper to format date as YYYY-MM-DD HH:MM:SS
-        function formatDateTime(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const mins = String(date.getMinutes()).padStart(2, '0');
-            const secs = String(date.getSeconds()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
-        }
 
         try {
             const effectiveId = getEffectiveTicketId();

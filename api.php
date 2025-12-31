@@ -150,9 +150,17 @@ if ($action === 'calculate_fee') {
         $entry_time_str = $input['entry_time'] ?? $ticket['entry_time'];
         $entry_time = new DateTime($entry_time_str);
 
-        $calculationTime = clone $entry_time;
-        if ($extension_minutes > 0) {
-            $calculationTime->modify("+{$extension_minutes} minutes");
+        // Expect explicit exit_time from frontend
+        $exit_time_str = $input['exit_time'] ?? null;
+        if ($exit_time_str) {
+            $calculationTime = new DateTime($exit_time_str);
+        } else {
+            // Fallback: If no exit time provided, maybe default to NOW or Entry Time?
+            // But valid usage requires exit_time.
+            $calculationTime = clone $entry_time;
+            if ($extension_minutes > 0) {
+                $calculationTime->modify("+{$extension_minutes} minutes");
+            }
         }
         $calculationDate = $calculationTime->format('Y-m-d H:i:s');
 
@@ -183,7 +191,8 @@ if ($action === 'calculate_fee') {
                     // Spójrzmy na config.ini: hourly_rate = 5.00.
                     // Jeśli system BaseSystem używa groszy, to 5.00PLN = 500.
                     // Zaryzykuję podzielenie przez 100, bo int64 rzadko jest dla kwot z przecinkiem, a dla "groszy".
-                    $fee = $toPay / 100.0;
+                    // Always return the TOTAL fee to allow payment/re-payment even if already paid.
+                    $fee = $rawFee / 100.0;
 
                     // Czas trwania - obliczamy lokalnie dla UI, bo API nie zwraca 'duration' wprost, tylko daty.
                     $validFrom = new DateTime($ticketData['VALID_FROM'] ?? $entry_time->format('Y-m-d H:i:s'));
