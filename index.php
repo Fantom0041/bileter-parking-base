@@ -389,7 +389,7 @@ if ($ticket) {
     <!-- Bottom Sheet: Payment Control -->
     <footer class="payment-sheet" id="paymentSheet">
       <section class="status-section">
-        <div class="payment-info-card" <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'style="display:none;"' : ''; ?>>
+        <div class="payment-info-card">
           <?php
           $feePaid = 0.00;
           $validTo = null;

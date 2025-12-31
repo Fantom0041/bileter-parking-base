@@ -593,7 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     exitCollapsed.style.display = 'block';
 
                     // Hide edit button
-                    const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
+                     const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
                     if (editExitBtnCollapsed) {
                         editExitBtnCollapsed.style.display = 'none';
                     }
@@ -615,6 +615,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Normal mode: Show expanded exit section, hide collapsed
                 if (exitExpanded) exitExpanded.style.display = 'block';
                 if (exitCollapsed) exitCollapsed.style.display = 'none';
+             }
+        }
+
+        // --- NEW RESTRICTION: Disable START DATE for Single Day Mode ---
+        // "jak masz jednodniowy to ... date START nie da sie zmienci."
+        if (currentDurationMode === 'single_day' && currentTimeMode === 'hourly') {
+             if (entryDateBtn) {
+                 entryDateBtn.classList.remove('active');
+                 entryDateBtn.style.opacity = '0.5';
+                 entryDateBtn.style.pointerEvents = 'none';
+             }
+             if (entryTimeBtn) {
+                  // Ensure Time is active if Date is disabled
+                  entryTimeBtn.classList.add('active');
+                  // We might need to ensure currentUnit is minutes if we force this?
+                  // `entryTimeBtn.click()` handles logic, but let's not trigger events if possible.
+                  // Just set visual state.
+             }
+        } else {
+             // Re-enable if switching modes (though Single Day button in config might restrict switching?)
+             // Better safe to re-enable.
+             if (isEditable && entryDateBtn) { // Simple check, or just check 'active' status?
+                  // Only re-enable if it's not restricted by other logic (e.g. Ticket Exist)
+                  if (!API_SETTINGS.ticket_exist || API_SETTINGS.ticket_exist == '0') {
+                        entryDateBtn.style.opacity = '1';
+                        entryDateBtn.style.pointerEvents = 'auto';
+                  }
              }
         }
 
@@ -657,15 +684,11 @@ document.addEventListener('DOMContentLoaded', () => {
              if (exitDateBtn) {
                 exitDateBtn.classList.remove('active');
                 
-                if (API_SETTINGS.ticket_exist == '1') {
-                    // Restricted: Cannot switch mode
-                    exitDateBtn.style.opacity = '0.5';
-                    exitDateBtn.style.pointerEvents = 'none';
-                } else {
-                    // Allowed: Can switch mode
-                    exitDateBtn.style.opacity = '1'; 
-                    exitDateBtn.style.pointerEvents = 'auto';
-                }
+                // RESTRICTION: In Single Day mode, Date cannot be changed.
+                // It is dependent on Start Date (same day or relative).
+                // User must use "Duration" buttons to switch to Multi-Day.
+                exitDateBtn.style.opacity = '0.5';
+                exitDateBtn.style.pointerEvents = 'none';
              }
 
             if (exitTimeBtn) {
@@ -1203,29 +1226,51 @@ document.addEventListener('DOMContentLoaded', () => {
              // But spinner can spin forever.
              // Let's enforce the "Max 23:59" rule strictly.
              if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
-                  const endOfDay = new Date(calculatedExitDate);
+                  // User Request: "stop tylko godzina do 23:59" (Stop only hour up to 23:59)
+                  // Calculate End Of Day of the BASE date (Start Date or Valid To)
+                  const baseDay = new Date(exitBaseTime); 
+                  const endOfDay = new Date(baseDay);
                   endOfDay.setHours(23, 59, 59, 999);
-                  // But wait, if calculatedExitDate IS 23:59, then endOfDay IS it.
-                  // We need to check if we crossed into *another* day?
-                  // User says "maximum... is 23:59".
-                  // This usually implies staying within the current calendar day of VALID_TO.
-                  // Let's assume clamping to EndOfDay(validToDate).
                   
-                  const maxDate = new Date(validToDate);
-                  maxDate.setHours(23, 59, 59, 999);
-                  
-                 if (calculatedExitDate > maxDate) {
-                      
-                       console.log("Validation: New Exit Time " + calculatedExitDate + " exceeds Max Limit " + maxDate);
-                       updateExitTimeDisplay(maxDate);
+                  if (calculatedExitDate > endOfDay) {
+                       // Clamp logic
+                       // We can't easily clamp the spinner degrees without recalculating turns/angles complexly.
+                       // Instead, we will visualy display the Limit, and effectively clamp the "Time" value
+                       // But the Slider handle might be visually "past" the limit. 
+                       // Ideally we validat *before* updating totalDegrees in handleSliderChange, but that is generic.
+                       // Here we are in updateSpinner logic.
                        
-                      
-                       setTimeout(() => {
-                           const hours = String(maxDate.getHours()).padStart(2, '0');
-                           const mins = String(maxDate.getMinutes()).padStart(2, '0');
-                           spinnerValue.innerHTML = `${hours}:${mins}`;
-                       }, 500);
-                       return; // Stop further checks
+                       console.log("Validation: Clamping to EndOfDay " + endOfDay);
+                       
+                       // Force the display to show 23:59
+                       const hours = String(endOfDay.getHours()).padStart(2, '0');
+                       const mins = String(endOfDay.getMinutes()).padStart(2, '0');
+                       spinnerValue.innerHTML = `${hours}:${mins}`;
+                       
+                       // Update global currentExitTime to clamped value
+                       updateExitTimeDisplay(endOfDay);
+                       
+                       // Show limit warning briefly?
+                       // spinnerValue.innerHTML = `<span style="color:var(--error);">Limit!</span>`;
+                       // setTimeout(...)
+                       // Maybe just sticking to 23:59 is enough feedback (it won't go further).
+                       
+                       // IMPORTANT: We must STOP here and NOT call fetchCalculatedFee with the futuristic date.
+                       // We should call it with the CLAMPED date (endOfDay).
+                       
+                       addedMinutes = Math.floor((endOfDay - entryTime) / 60000);
+                       
+                       // Do standard debounce fetch with CLAMPED date
+                        if (typeof lastAddedMinutes === 'undefined' || lastAddedMinutes !== addedMinutes) {
+                            setLoadingState();
+                            if (debounceTimer) clearTimeout(debounceTimer);
+                            debounceTimer = setTimeout(() => {
+                                lastAddedMinutes = addedMinutes; 
+                                fetchCalculatedFee(endOfDay);
+                            }, 1000);
+                        }
+
+                       return; // Stop processing the original (overflowing) calculated date
                   }
              }
 
@@ -1376,31 +1421,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentFee = data.fee;
                 updatePayButton();
 
-                // Show payment info card ONLY if TICKET_EXIST == 1
-                if (data.ticket_exist == 1) {
-                     const paymentInfoCard = document.querySelector('.payment-info-card');
-                     if (paymentInfoCard) {
-                         paymentInfoCard.style.display = ''; // Reset to default
+                // Show payment info card ALWAYS (for both New and Existing tickets)
+                // data.ticket_exist check removed as per requirement: "teraz zawsze to ma wyswietlac"
+                 const paymentInfoCard = document.querySelector('.payment-info-card');
+                 if (paymentInfoCard) {
+                     paymentInfoCard.style.display = ''; // Reset to default (which should be visible)
+                 }
+                 // Update Fee Paid Value
+                 if (data.fee_paid !== undefined) {
+                     const feePaidValue = document.getElementById('feePaidValue');
+                     if (feePaidValue) {
+                         feePaidValue.innerText = parseFloat(data.fee_paid).toFixed(2);
                      }
-                     // Update Fee Paid Value
-                     if (data.fee_paid !== undefined) {
-                         const feePaidValue = document.getElementById('feePaidValue');
-                         if (feePaidValue) {
-                             feePaidValue.innerText = parseFloat(data.fee_paid).toFixed(2);
-                         }
-                     }
+                 }
                      
                      // Also check if we should populate "Wyjazd do" if it was empty?
                      // data.duration_minutes is calculated, but API might have authoritative date.
                      // The logic for 'Wyjazd do' is complex, mainly set by spinner/inputs.
                      // But if the user didn't change anything, we might want to sync.
                      // For now, user request focused on 'oplacono' component.
-                } else {
-                    const paymentInfoCard = document.querySelector('.payment-info-card');
-                    if (paymentInfoCard) {
-                        paymentInfoCard.style.display = 'none';
-                    }
-                }
+                // } else {
+                //    const paymentInfoCard = document.querySelector('.payment-info-card');
+                //    if (paymentInfoCard) {
+                //        paymentInfoCard.style.display = 'none';
+                //    }
+                // }
             } else {
                 console.error('Fee calculation failed:', data.message);
                 // Reset to initial fee on error
