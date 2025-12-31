@@ -1214,11 +1214,12 @@ document.addEventListener('DOMContentLoaded', () => {
                   const maxDate = new Date(validToDate);
                   maxDate.setHours(23, 59, 59, 999);
                   
-                  if (calculatedExitDate > maxDate) {
+                 if (calculatedExitDate > maxDate) {
+                      
                        console.log("Validation: New Exit Time " + calculatedExitDate + " exceeds Max Limit " + maxDate);
                        updateExitTimeDisplay(maxDate);
                        
-                       spinnerValue.innerHTML = `<span style="color:var(--error);">Max Limit!</span>`;
+                      
                        setTimeout(() => {
                            const hours = String(maxDate.getHours()).padStart(2, '0');
                            const mins = String(maxDate.getMinutes()).padStart(2, '0');
