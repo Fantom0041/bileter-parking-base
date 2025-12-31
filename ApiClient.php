@@ -413,8 +413,15 @@ class ApiClient
         $reqOrderId = $data['ORDER_ID'];
 
         // 1. Walidacja METHOD
-        if ($respMethod !== $reqMethod && $respMethod !== 'ERROR') {
-            $this->logError("Niezgodność METHOD: oczekiwano $reqMethod lub ERROR, otrzymano $respMethod");
+        // 1. Walidacja METHOD
+        $validMethods = [$reqMethod, 'ERROR'];
+        // Specjalny przypadek: PARK_TICKET_GET_PAYMENT_PDF może zwrócić GET_FILE
+        if ($reqMethod === 'PARK_TICKET_GET_PAYMENT_PDF') {
+            $validMethods[] = 'GET_FILE';
+        }
+
+        if (!in_array($respMethod, $validMethods)) {
+            $this->logError("Niezgodność METHOD: oczekiwano " . implode(' lub ', $validMethods) . ", otrzymano $respMethod");
             return ['STATUS' => -999, 'DESC' => 'Błąd protokołu: Błędna metoda odpowiedzi'];
         }
 
