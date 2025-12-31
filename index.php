@@ -579,7 +579,8 @@ if ($ticket) {
       hourly_rate: <?php echo $config['settings']['hourly_rate']; ?>,
       time_mode: API_SETTINGS.time_mode,
       duration_mode: API_SETTINGS.duration_mode,
-      day_counting: API_SETTINGS.day_counting
+      day_counting: API_SETTINGS.day_counting,
+      valid_to: <?php echo isset($ticket['api_data']['VALID_TO']) ? json_encode($ticket['api_data']['VALID_TO']) : 'null'; ?>
     };
     const IS_PAID = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
     const ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";

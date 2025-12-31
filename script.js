@@ -188,7 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entryCollapsed) entryCollapsed.style.display = 'flex';
         if (entryExpanded) entryExpanded.style.display = 'none';
 
-        // Check if we're in special mode: daily + single_day (FEE_TYPE=0, FEE_MULTI_DAY=0)
+    // Check if we're in special mode: daily + single_day (FEE_TYPE=0, FEE_MULTI_DAY=0)
+        // OR if Ticket Exists (ENTRY not editable)
         if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
             // Show collapsed Stop, hide expanded Stop
             if (exitCollapsed) exitCollapsed.style.display = 'block';
@@ -217,6 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
             }
         } else {
+             // Logic for TICKET_EXIST=1 check to disable START editing is handled in click handlers (isEntryEditable check)
+             // But we need to ensure the UI reflects it (no pointer cursor) - updateCursors() handles that.
+             
             // Normal mode: show expanded Stop, hide collapsed Stop
             if (exitExpanded) exitExpanded.style.display = 'block';
             if (exitCollapsed) exitCollapsed.style.display = 'none';
@@ -258,10 +262,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) {
-        if (editEntryBtn) editEntryBtn.style.display = 'flex';
+        if (editEntryBtn) {
+             // Only show if ticket doesn't exist? Rules say "moge zmienic date START, mimo ze TICKET_EXIST=1 - w takim przypadku NIE da sie zmienic"
+             // Wait, the rule says: "mimo ze TICKET_EXIST=1 - w takim przypadku nie da sie zmienic"
+             // It means: "Normally I can change start... BUT if TICKET_EXIST=1, then I CANNOT change it."
+             if (API_SETTINGS.ticket_exist == '1') {
+                 editEntryBtn.style.display = 'none';
+             } else {
+                 editEntryBtn.style.display = 'flex';
+             }
+        }
 
         if (editEntryBtn) {
             editEntryBtn.addEventListener('click', (e) => {
+                // Double check restriction
+                if (API_SETTINGS.ticket_exist == '1') return;
+                
                 e.stopPropagation();
                 // Switch to entry edit mode
                 editMode = 'entry';
@@ -304,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const entryCollapsed = document.getElementById('entryCollapsed');
         if (entryCollapsed && editEntryBtn) {
             entryCollapsed.addEventListener('click', () => {
-                 if (window.getComputedStyle(editEntryBtn).display !== 'none') {
+                 if (window.getComputedStyle(editEntryBtn).display !== 'none' && API_SETTINGS.ticket_exist != '1') {
                      editEntryBtn.click();
                  }
             });
@@ -481,8 +497,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Entry Cursor
         const isEntryEditable = (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) && 
-                                (API_SETTINGS.fee_type_raw != '0');
-        console.log('isEntryEditable', isEntryEditable);
+                                (API_SETTINGS.fee_type_raw != '0') && 
+                                (API_SETTINGS.ticket_exist != '1');
+        
         if (entryCollapsed) {
             entryCollapsed.style.cursor = isEntryEditable ? 'pointer' : 'default';
         }
@@ -568,16 +585,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Hourly + Single Day Mode: Disable Date selection
+        // Hourly + Single Day Mode:
         if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
-            if (exitDateBtn) {
+             // For Existing Tickets, we should NOT allow switching to Multi-Day?
+             // User Request: "if not multiday ... we can set only the end time".
+             // So if TICKET_EXIST=1, disable Date button.
+             // If TICKET_EXIST is false (New Ticket), allow switching.
+             
+             if (exitDateBtn) {
                 exitDateBtn.classList.remove('active');
-                exitDateBtn.style.opacity = '0.5';
-                exitDateBtn.style.pointerEvents = 'none';
-            }
+                
+                if (API_SETTINGS.ticket_exist == '1') {
+                    // Restricted: Cannot switch mode
+                    exitDateBtn.style.opacity = '0.5';
+                    exitDateBtn.style.pointerEvents = 'none';
+                } else {
+                    // Allowed: Can switch mode
+                    exitDateBtn.style.opacity = '1'; 
+                    exitDateBtn.style.pointerEvents = 'auto';
+                }
+             }
+
             if (exitTimeBtn) {
-                exitTimeBtn.classList.add('active'); // Force Time active
+                exitTimeBtn.classList.add('active'); // Force Time active initially
             }
+            // Fix: Force logic unit to minutes to match UI
+            currentUnit = 'minutes';
         } else if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
             // Ensure Date button is clickable again if we switched back
             if (exitDateBtn) {
@@ -607,18 +640,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Reset spinner position
-        // For daily + multi_day + from_entry, start with 1 day (360/7 degrees)
-        if (currentTimeMode === 'daily' && currentDurationMode === 'multi_day' && currentDayCounting === 'from_entry') {
-            totalDegrees = 360 / 7; // 1 day
-            // Set visual position of spinner
-            const slider = $("#slider").data("roundSlider");
-            if (slider) {
-                slider.setValue(totalDegrees);
-            }
-        } else {
-            totalDegrees = 0;
-        }
         updateSpinner(totalDegrees);
         updateSpinnerLabel();
 
@@ -649,9 +670,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const entryTime = new Date(ENTRY_TIME);
                 const nextDay = new Date(entryTime.getTime() + 24 * 60 * 60 * 1000); // +1 day
                 updateExitTimeDisplay(nextDay);
-            } else {
-                // Initialize exit time display with current time
-                const entryTime = new Date(ENTRY_TIME);
                 updateExitTimeDisplay(entryTime);
             }
         } else {
@@ -659,6 +677,48 @@ document.addEventListener('DOMContentLoaded', () => {
             const entryTime = new Date(ENTRY_TIME);
             updateExitTimeDisplay(entryTime);
         }
+        // Use VALID_TO as base if ticket exists and it's valid
+        let baseExitTime = new Date(ENTRY_TIME);
+        if (API_SETTINGS.ticket_exist == '1' && CONFIG.valid_to) {
+             const validTo = new Date(CONFIG.valid_to);
+             if (validTo > baseExitTime) {
+                 baseExitTime = validTo;
+             }
+        }
+        
+        // Calculate initial degrees based on baseExitTime
+        const diffMs = baseExitTime - new Date(ENTRY_TIME);
+        const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+        
+        if (API_SETTINGS.ticket_exist == '1') {
+            // Start at 0 relative to VALID_TO
+            totalDegrees = 0;
+            currentTurns = 0;
+        } else if (currentTimeMode === 'daily') {
+             // 360 deg = 7 days = 10080 mins
+             totalDegrees = (diffMinutes / 10080) * 360;
+        } else if (currentTimeMode === 'hourly') {
+             if (currentDurationMode === 'single_day') {
+                 // 360 deg = 60 mins
+                 totalDegrees = (diffMinutes / 60) * 360;
+                 // Set currentTurns to handle huge offsets
+                 currentTurns = Math.floor(totalDegrees / 360);
+             } else {
+                 if (currentUnit === 'days') {
+                      totalDegrees = (diffMinutes / 10080) * 360;
+                 } else {
+                      // Minutes view for multi-day?
+                      // Usually implies adding on top of days?
+                      // Just use standard minute scaling
+                      totalDegrees = (diffMinutes / 60) * 360;
+                 }
+             }
+        }
+        
+        // Update spinner (both slider position and text value)
+        updateSpinner(totalDegrees);
+
+        updateExitTimeDisplay(baseExitTime);
 
         // Start/Restart Clock if not interacted
         // Don't start clock in daily + from_entry modes (time is fixed)
@@ -673,7 +733,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Exit time buttons - switch between editing date or time
     if (exitDateBtn && exitTimeBtn) {
         exitDateBtn.addEventListener('click', () => {
-            if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
+            if (currentTimeMode === 'hourly') {
+                if (currentDurationMode === 'single_day') {
+                     // Auto-upgrade to multi-day
+                     currentDurationMode = 'multi_day';
+                     
+                     // Update config UI if present
+                     const durationBtn = document.querySelector(`.config-btn[data-value="multi_day"]`);
+                     if (durationBtn) {
+                         durationBtn.classList.add('active');
+                         const singleBtn = document.querySelector(`.config-btn[data-value="single_day"]`);
+                         if (singleBtn) singleBtn.classList.remove('active');
+                     }
+                     
+                     // Re-run minimal setup for multi-day
+                     isEditable = true;
+                     // Don't call initializeUI() fully here as it effectively resets us, 
+                     // just ensure state is correct for "Date" editing below.
+                     
+                     // Need to ensure spinnerContainer is shown? It is shown in hourly.
+                }
+
                 currentUnit = 'days';
                 exitDateBtn.classList.add('active');
                 exitTimeBtn.classList.remove('active');
@@ -744,8 +824,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Nie pozwalaj na zmianę czasu, jeśli bilet jest już opłacony
         if (typeof IS_PAID !== 'undefined' && IS_PAID) return;
 
+        // Validation against VALID_TO
+        // We do this check AFTER calculating the potential new time, but we can also prevent slider movement?
+        // Better to calculate potential time first, then check.
+        // But handleSliderChange updates Turns and Degrees.
+        // Let's go through the logic.
+
+        
         let diff = newValue - lastSliderValue;
         let potentialTurns = currentTurns;
+
+
+     
 
         // Detect wrap around
         if (diff < -180) {
@@ -829,6 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const baseTime = editingBaseEntryTime || entryTime;
 
+        
             // Editing ENTRY time - go forward in time
             if (currentUnit === 'days') {
                 // Days selection - go forward in time
@@ -890,6 +981,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 3. Logic based on totalDegrees for EXIT time editing
+        
+        // Define base time for Exit Editing
+        let exitBaseTime = entryTime;
+        if (API_SETTINGS.ticket_exist == '1' && CONFIG.valid_to) {
+            exitBaseTime = new Date(CONFIG.valid_to);
+        }
 
         // 3.2: daily / multi_day - scanning adds days
         if (currentTimeMode === 'daily') {
@@ -899,7 +996,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedDays = daysFromAngle;
 
             // Oblicz datę wyjazdu
-            const exitDate = new Date(entryTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
+            const exitDate = new Date(exitBaseTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
 
             // For multi_day + from_entry: keep the same hour as entry time (24h from entry)
             // For other modes: force 23:59:59
@@ -935,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedMinutes = minutesFromAngle;
 
             // Oblicz czas wyjazdu
-            const exitTime = new Date(entryTime.getTime() + selectedMinutes * 60000);
+            const exitTime = new Date(exitBaseTime.getTime() + selectedMinutes * 60000);
 
             const hours = String(exitTime.getHours()).padStart(2, '0');
             const mins = String(exitTime.getMinutes()).padStart(2, '0');
@@ -957,7 +1054,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedDays = daysFromAngle;
 
                 // Oblicz datę wyjazdu
-                const exitDate = new Date(entryTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
+                const exitDate = new Date(exitBaseTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
                 const day = String(exitDate.getDate()).padStart(2, '0');
                 const month = String(exitDate.getMonth() + 1).padStart(2, '0');
                 const year = exitDate.getFullYear();
@@ -974,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedMinutes = minutesFromAngle;
 
                 // Oblicz czas wyjazdu
-                const exitTime = new Date(entryTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
+                const exitTime = new Date(exitBaseTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
                 const hours = String(exitTime.getHours()).padStart(2, '0');
                 const mins = String(exitTime.getMinutes()).padStart(2, '0');
 
@@ -987,6 +1084,109 @@ document.addEventListener('DOMContentLoaded', () => {
 
             totalMinutes = selectedDays * 1440 + selectedMinutes;
             addedMinutes = totalMinutes;
+        }
+
+        // --- VALIDATION: Check against VALID_TO ---
+        // --- VALIDATION: Check against VALID_TO ---
+        if (CONFIG.valid_to && API_SETTINGS.ticket_exist == '1') {
+             const validToDate = new Date(CONFIG.valid_to);
+             let calculatedExitDate = null;
+             
+             if (currentTimeMode === 'daily') {
+                  const daysFromAngle = Math.round((totalDegrees / 360) * 7);
+                   calculatedExitDate = new Date(exitBaseTime.getTime() + daysFromAngle * 24 * 60 * 60 * 1000);
+                   if (currentDurationMode === 'multi_day' && currentDayCounting === 'from_entry') {
+                       // Keep hour
+                   } else {
+                       calculatedExitDate.setHours(23, 59, 59, 999);
+                   }
+             } else if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
+                  const minutesFromAngle = Math.round((totalDegrees / 360) * 60);
+                  calculatedExitDate = new Date(exitBaseTime.getTime() + minutesFromAngle * 60000);
+             } else if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
+                 if (currentUnit === 'days') {
+                      // Logic handled above but for completeness using calculatedExitTime from above
+                      // Or recalc using exitBaseTime
+                      // Since calculateExitTime from above UPDATED currentExitTime, we can just use that.
+                 }
+                 // Simplification: use `currentExitTime` which was just updated above.
+                 calculatedExitDate = currentExitTime;
+             }
+             
+             // Upper Bound Check for Single Day Mode: Max 23:59:59 of the VALID_TO day?
+             // User says: "maximum we can set of time is 23:59"
+             // If we are Single Day, we shouldn't cross too far.
+             // Let's limit to End Of Day of the calculated date?
+             // Actually, if we are editing Single Day, we are just adding minutes.
+             // If VALID_TO is today, we can go to 23:59 today.
+             // If VALID_TO is tomorrow (e.g. 02:17), we can go to 23:59 tomorrow?
+             // Since we disabled expanding to Multi-Day (Date button disabled), we are implicitly limited by spinner.
+             // But spinner can spin forever.
+             // Let's enforce the "Max 23:59" rule strictly.
+             if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
+                  const endOfDay = new Date(calculatedExitDate);
+                  endOfDay.setHours(23, 59, 59, 999);
+                  // But wait, if calculatedExitDate IS 23:59, then endOfDay IS it.
+                  // We need to check if we crossed into *another* day?
+                  // User says "maximum... is 23:59".
+                  // This usually implies staying within the current calendar day of VALID_TO.
+                  // Let's assume clamping to EndOfDay(validToDate).
+                  
+                  const maxDate = new Date(validToDate);
+                  maxDate.setHours(23, 59, 59, 999);
+                  
+                  if (calculatedExitDate > maxDate) {
+                       console.log("Validation: New Exit Time " + calculatedExitDate + " exceeds Max Limit " + maxDate);
+                       updateExitTimeDisplay(maxDate);
+                       
+                       spinnerValue.innerHTML = `<span style="color:var(--error);">Max Limit!</span>`;
+                       setTimeout(() => {
+                           const hours = String(maxDate.getHours()).padStart(2, '0');
+                           const mins = String(maxDate.getMinutes()).padStart(2, '0');
+                           spinnerValue.innerHTML = `${hours}:${mins}`;
+                       }, 500);
+                       return; // Stop further checks
+                  }
+             }
+
+             if (calculatedExitDate && calculatedExitDate < validToDate) {
+                 // REVERT / CLAMP
+                 // If the calculated time is BEFORE valid_to, enforce valid_to.
+                 // But simply replacing the date isn't enough, we must update the SPINNER/SLIDER too to reflect this.
+                 // This is hard because mapping Date -> Degrees is complex (modulo, turns).
+                 // ALTERNATIVE: Just update the Display to be ValidTo, and maybe reset slider?
+                 // Or better: Just check `currentExitTime` against `validToDate`.
+                 
+                 // If less than validTo, snap to validTo.
+             
+                 
+                 updateExitTimeDisplay(validToDate);
+                 
+                 // How to update Spinner Visuals to match VALID_TO?
+                 // It's complicated to reverse-engineer degrees from date here without code duplication.
+                 // Maybe just visual feedback is enough? "Data/godzina STOP nie moze byc mniejsza niz VALID_TO".
+                 // Requirement: "nie da sie zmienić" (cannot change).
+                 // So we should probably prevent the update if illegal?
+                 // Or clamp it. Clamping is better UX.
+                 // Let's force display to ValidTo.
+                 
+                 spinnerValue.innerHTML = `<span style="color:var(--error);">Limit!</span>`;
+                 setTimeout(() => {
+                      // restore visual text?
+                      // actually let's just show the time of ValidTo
+                      const day = String(validToDate.getDate()).padStart(2, '0');
+                      const month = String(validToDate.getMonth() + 1).padStart(2, '0');
+                      const year = validToDate.getFullYear();
+                      const hours = String(validToDate.getHours()).padStart(2, '0');
+                      const mins = String(validToDate.getMinutes()).padStart(2, '0');
+                      
+                      if (currentUnit === 'days' || currentTimeMode === 'daily') {
+                           spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
+                      } else {
+                           spinnerValue.innerHTML = `${hours}:${mins}`;
+                      }
+                 }, 500);
+             }
         }
 
         // Clear existing debounce timer
@@ -1073,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-            console.log('Fee calculation response:', data);
+           
             if (data.success) {
                 currentFee = data.fee;
                 updatePayButton();
