@@ -204,8 +204,10 @@ if ($ticket) {
 
         <!-- Client Logo -->
         <div style="display: flex; align-items: center;">
-          <img src="image/rusin-ski_white.svg" alt="Rusin Ski"
-            style="height: 40px; max-width: 150px; object-fit: contain; display: block;">
+          <a href="index.php">
+            <img src="image/rusin-ski_white.svg" alt="Rusin Ski"
+              style="height: 40px; max-width: 150px; object-fit: contain; display: block;">
+          </a>
         </div>
       </div>
     </header>
@@ -249,17 +251,29 @@ if ($ticket) {
         <div class="plate-blue">
           <span>PL</span>
         </div>
-        <div class="plate-number" id="plateDisplay">
-          <?php echo htmlspecialchars($ticket['plate']); ?>
-        </div>
+        <div class="plate-number-container">
 
-        <button id="editPlateBtn" class="edit-icon" aria-label="Edytuj numer rejestracyjny">
+
+       
+       
+        <div class="plate-number" id="plateDisplay">
+            <button id="editPlateBtn" class="edit-icon" aria-label="Edytuj numer rejestracyjny">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
           </svg>
         </button>
+        <span>
+
+       
+          <?php echo htmlspecialchars($ticket['plate']); ?>
+        </span>
+        </div>
+ </div>
+        
+
+       
       </div>
     </section>
 

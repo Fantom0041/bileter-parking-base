@@ -136,12 +136,11 @@ body {
     position: relative;
 }
 
-.license-plate .edit-icon {
-    padding-right: 10px;
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
+.plate-number-container {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
 }
 
 
@@ -205,6 +204,7 @@ body {
     padding: 12px 0px;
     font-weight: 500;
     letter-spacing: 2px;
+    gap: 8px;
     color: #000;
 }
 

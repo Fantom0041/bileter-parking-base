@@ -44,7 +44,7 @@
       </div>
 
       <div style="margin-top: 30px;">
-        <a href="index.php" class="btn-primary"
+        <a href="javascript:history.back()" class="btn-primary"
           style="display: flex; align-items: center; justify-content: center; text-decoration: none;">Wróć</a>
       </div>
     </div>
