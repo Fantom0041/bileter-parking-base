@@ -487,6 +487,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Check if value actually changed to avoid spamming updateSpinner and resetting debounce timer
+        if (Math.abs(newDegrees - totalDegrees) < 0.001) {
+            return;
+        }
+
         totalDegrees = newDegrees;
         updateSpinner(totalDegrees);
     }
@@ -1265,15 +1270,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Set loading state immediately (USING SCRIPT.JS LOGIC WITH SAFEGUARD)
         // Don't set loading state in daily + single_day mode (fee is calculated once in initializeUI)
+        // Also ensure we only fetch if minutes actually changed (prevent loops)
         if (!(currentTimeMode === 'daily' && currentDurationMode === 'single_day')) {
-            setLoadingState();
+             if (typeof lastAddedMinutes === 'undefined' || lastAddedMinutes !== addedMinutes) {
+                setLoadingState();
 
-            // Set new debounce timer (1000ms)
-            debounceTimer = setTimeout(() => {
-                fetchCalculatedFee(addedMinutes);
-            }, 1000);
+                // Set new debounce timer (1000ms)
+                debounceTimer = setTimeout(() => {
+                    lastAddedMinutes = addedMinutes; // Update last fetched/sent minutes
+                    fetchCalculatedFee(addedMinutes);
+                }, 1000);
+             }
         }
     }
+
+    // Track last minutes ensuring we don't refetch same value
+    let lastAddedMinutes = null;
 
     // Update exit time display fields
     function updateExitTimeDisplay(exitTime) {
