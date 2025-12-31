@@ -505,8 +505,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Exit Cursor (Collapsed)
-        // Editable if NOT (Daily AND Single Day)
-        const isExitEditable = !(currentTimeMode === 'daily' && currentDurationMode === 'single_day');
+        // Editable if NOT (Daily AND Single Day) AND NOT (Max Limit Reached)
+        let isExitEditable = !(currentTimeMode === 'daily' && currentDurationMode === 'single_day');
+        
+        // Check Max Limit Reached
+        if (API_SETTINGS.ticket_exist == '1' && currentDurationMode === 'single_day' && CONFIG.valid_to) {
+             const validTo = new Date(CONFIG.valid_to);
+             const entryTime = new Date(ENTRY_TIME);
+             const endOfDay = new Date(entryTime);
+             endOfDay.setHours(23, 59, 59, 999);
+             
+             if ((endOfDay - validTo) <= 15 * 60 * 1000) {
+                 isExitEditable = false;
+             }
+        }
         
         if (exitCollapsed) {
             exitCollapsed.style.cursor = isExitEditable ? 'pointer' : 'default';
@@ -551,9 +563,54 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else {
-            // Normal mode: Show expanded exit section, hide collapsed
-            if (exitExpanded) exitExpanded.style.display = 'block';
-            if (exitCollapsed) exitCollapsed.style.display = 'none';
+             // Check for "Max Limit Reached" condition (USER REQUEST)
+             // IF STOP (initially ValidTo) and VALID_TO are close to the Limit (EndOfDay), collapse.
+             let isMaxLimit = false;
+             if (API_SETTINGS.ticket_exist == '1' && currentDurationMode === 'single_day' && CONFIG.valid_to) {
+                 const validTo = new Date(CONFIG.valid_to);
+                 const entryTime = new Date(ENTRY_TIME);
+                 const endOfDay = new Date(entryTime);
+                 endOfDay.setHours(23, 59, 59, 999);
+                 
+                 // Check if ValidTo is within 15 minutes of EndOfDay
+                 if ((endOfDay - validTo) <= 15 * 60 * 1000) {
+                     isMaxLimit = true;
+                 }
+             }
+
+             if (isMaxLimit) {
+                // Treat as "Daily + Single Day" -> Collapsed and Non-Editable
+                 // Hide expanded exit section
+                if (exitExpanded) exitExpanded.style.display = 'none';
+
+                // Show collapsed exit section
+                if (exitCollapsed) {
+                    exitCollapsed.style.display = 'block';
+
+                    // Hide edit button
+                    const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
+                    if (editExitBtnCollapsed) {
+                        editExitBtnCollapsed.style.display = 'none';
+                    }
+                    
+                    // Show ValidTo (or EndOfDay) in collapsed display
+                    const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
+                    if (exitTimeDisplayCollapsed && CONFIG.valid_to) {
+                         // Format valid_to for display
+                         const vt = new Date(CONFIG.valid_to);
+                         const year = vt.getFullYear();
+                         const month = String(vt.getMonth() + 1).padStart(2, '0');
+                         const day = String(vt.getDate()).padStart(2, '0');
+                         const hours = String(vt.getHours()).padStart(2, '0');
+                         const mins = String(vt.getMinutes()).padStart(2, '0');
+                         exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+                    }
+                }
+             } else {
+                // Normal mode: Show expanded exit section, hide collapsed
+                if (exitExpanded) exitExpanded.style.display = 'block';
+                if (exitCollapsed) exitCollapsed.style.display = 'none';
+             }
         }
 
         // Daily Mode: Disable Time selection
@@ -630,7 +687,19 @@ document.addEventListener('DOMContentLoaded', () => {
         setSliderState(isEditable);
 
         // Hide spinner completely in daily + single_day mode (FEE_TYPE=0, FEE_MULTI_DAY=0) - time is fixed
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
+        // OR if Max Limit Reached
+        let isMaxLimitForSpinner = false;
+        if (API_SETTINGS.ticket_exist == '1' && currentDurationMode === 'single_day' && CONFIG.valid_to) {
+             const validTo = new Date(CONFIG.valid_to);
+             const entryTime = new Date(ENTRY_TIME);
+             const endOfDay = new Date(entryTime);
+             endOfDay.setHours(23, 59, 59, 999);
+             if ((endOfDay - validTo) <= 15 * 60 * 1000) {
+                 isMaxLimitForSpinner = true;
+             }
+        }
+
+        if ((currentTimeMode === 'daily' && currentDurationMode === 'single_day') || isMaxLimitForSpinner) {
             if (spinnerContainer) {
                 spinnerContainer.style.display = 'none';
             }
