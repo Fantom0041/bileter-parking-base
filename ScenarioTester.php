@@ -66,18 +66,19 @@ class ScenarioTester
       $entry = new DateTime($entryTimeStr);
       $validTo = clone $entry;
 
-      $isDailyEntry = ($this->feeType === 0 && $this->feeStartsType === 0);
-
-      if ($isDailyEntry) {
+      // Logic fixed to prioritize "Midnight" start type correctly
+      if ($this->feeStartsType === 1) {
+        // Any "From Midnight" mode (0_0_1, 0_1_1, etc) defaults to End of Day
+        $validTo->setTime(23, 59, 59);
+      }
+      // 2. Daily From Entry (Single or Multi) -> Always +1 Day
+      elseif ($this->feeType === 0 && $this->feeStartsType === 0) {
+        // 0_0_0, 0_1_0
         $validTo->modify('+1 day');
-      } elseif ($this->feeMultiDay === 0) {
-        // Single Day non-DailyEntry -> End of Day
-        $validTo->setTime(23, 59, 59);
-      } elseif ($this->feeType === 0 && $this->feeStartsType === 1) {
-        // Daily Multi Midnight -> End of Day
-        $validTo->setTime(23, 59, 59);
-      } else {
-        // Hourly Multi -> Start + 1h 
+      }
+      // 3. Hourly From Entry (Single or Multi) -> Default +1 Hour (Simulates Now)
+      else {
+        // 1_0_0, 1_1_0
         $validTo->modify('+1 hour');
       }
 

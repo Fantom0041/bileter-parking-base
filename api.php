@@ -39,6 +39,8 @@ $input = json_decode($rawInput, true);
 
 // Allow handling GET parameters for download actions
 $action = $input['action'] ?? $_GET['action'] ?? 'pay';
+error_log("API Action Received: " . $action . " | Input: " . json_encode($input));
+
 
 
 if ($action === 'create') {

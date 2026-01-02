@@ -59,7 +59,7 @@ while ($conn = stream_socket_accept($socket)) {
           'VALID_TO' => $savedState['valid_to'],
           'FEE' => $savedState['fee'], // Remaining fee
           'FEE_PAID' => $savedState['fee_paid'], // Total paid
-          'FEE_TYPE' => $savedState['fee_type'] ?? 0,
+          'FEE_TYPE' => (strpos($barcode, 'DAILY') !== false) ? 0 : ($savedState['fee_type'] ?? 0),
           'FEE_MULTI_DAY' => $savedState['fee_multi_day'] ?? 0,
           'ORDER_ID' => $orderId,
           'METHOD' => 'PARK_TICKET_GET_INFO'

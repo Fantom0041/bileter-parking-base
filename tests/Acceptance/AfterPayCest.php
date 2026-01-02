@@ -77,10 +77,7 @@ station_id = "TEST"
 currency = "PLN"
 hourly_rate = 5.00
 free_minutes = 15
-[parking_modes]
-time_mode = "' . $timeMode . '"
-duration_mode = "' . $durationMode . '"
-day_counting = "' . $dayCounting . '"
+
 [api]
 api_url = "tcp://127.0.0.1:8099"
 api_login = "test"
@@ -95,6 +92,22 @@ selected_scenario = "' . $scenario . '"
 ';
     file_put_contents('config.ini', $config);
   }
+
+  /**
+   * Scenario Usage:
+   * applyScenario('type_multiday_starts')
+   * 
+   * Mapping to CONFIGURATION_TABLE.md:
+   * Test ID (Type_Multi_Starts) <-> Table Columns (Multi | Type | Starts)
+   * 0_0_0 <-> 0 | 0 | 0 (Daily, Single, Entry)
+   * 0_0_1 <-> 0 | 0 | 1 (Daily, Single, Midnight)
+   * 1_0_0 <-> 0 | 1 | 0 (Hourly, Single, Entry)
+   * 1_0_1 <-> 0 | 1 | 1 (Hourly, Single, Midnight)
+   * 0_1_0 <-> 1 | 0 | 0 (Daily, Multi, Entry)
+   * 0_1_1 <-> 1 | 0 | 1 (Daily, Multi, Midnight)
+   * 1_1_0 <-> 1 | 1 | 0 (Hourly, Multi, Entry)
+   * 1_1_1 <-> 1 | 1 | 1 (Hourly, Multi, Midnight)
+   */
 
   /**
    * Scenario 0_0_0 (Daily/Single/Entry)
@@ -203,5 +216,110 @@ selected_scenario = "' . $scenario . '"
     // Valid To should be Entry + 1 Day (min charge for daily).
     $tomorrow = date('Y-m-d', strtotime('+1 day'));
     $I->see($tomorrow, '#paymentInfoExitValue');
+  }
+
+
+  /**
+   * Scenario 0_0_1 (Daily/Single/Midnight)
+   * Expected:
+   * 1. Pay 5.00
+   * 2. Reload -> 0.00
+   * 3. Valid To -> End of Day (23:59:59)
+   */
+  public function testAfterPay_0_0_1(AcceptanceTester $I)
+  {
+    $this->applyScenario('0_0_1');
+    $I->amOnPage('/?ticket_id=PAY_001');
+    $I->waitForText('TEST MODE: [0_0_1]', 5);
+
+    $I->click('#payButton');
+    $I->waitForElementVisible('#successOverlay', 10);
+    $I->click('#successOverlay button.btn-secondary');
+
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
+
+    // Check for end of day time
+    $I->see('23:59', '#paymentInfoExitValue');
+  }
+
+  /**
+   * Scenario 1_0_1 (Hourly/Single/Midnight)
+   * Expected:
+   * 1. Pay 5.00
+   * 2. Reload -> 0.00
+   * 3. Valid To -> Entry + 1h (but limited to today? or just standard hourly)
+   *    For 1_0_1, Table: Stop Date Fixed, Time Editable to 23:59.
+   *    We accept reasonably valid time.
+   */
+  public function testAfterPay_1_0_1(AcceptanceTester $I)
+  {
+    $this->applyScenario('1_0_1');
+    $I->amOnPage('/?ticket_id=PAY_101');
+    $I->waitForText('TEST MODE: [1_0_1]', 5);
+
+    $I->click('#payButton');
+    $I->waitForElementVisible('#successOverlay', 10);
+    $I->click('#successOverlay button.btn-secondary');
+
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
+
+    // Verify valid to exists
+    $today = date('Y-m-d');
+    $I->see($today, '#paymentInfoExitValue');
+  }
+
+  /**
+   * Scenario 0_1_1 (Daily/Multi/Midnight)
+   * Expected:
+   * 1. Pay
+   * 2. Valid To -> 23:59 (Midnight based)
+   */
+  public function testAfterPay_0_1_1(AcceptanceTester $I)
+  {
+    $this->applyScenario('0_1_1');
+    $I->amOnPage('/?ticket_id=PAY_011');
+    $I->waitForText('TEST MODE: [0_1_1]', 5);
+
+    $I->click('#payButton');
+    $I->waitForElementVisible('#successOverlay', 10);
+    $I->click('#successOverlay button.btn-secondary');
+
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
+    $I->see('23:59', '#paymentInfoExitValue');
+  }
+
+  /**
+   * Scenario 1_1_0 (Hourly/Multi/Entry)
+   */
+  public function testAfterPay_1_1_0(AcceptanceTester $I)
+  {
+    $this->applyScenario('1_1_0');
+    $I->amOnPage('/?ticket_id=PAY_110');
+    $I->waitForText('TEST MODE: [1_1_0]', 5);
+
+    $I->click('#payButton');
+    $I->waitForElementVisible('#successOverlay', 10);
+    $I->click('#successOverlay button.btn-secondary');
+
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
+    $today = date('Y-m-d');
+    $I->see($today, '#paymentInfoExitValue');
+  }
+
+  /**
+   * Scenario 1_1_1 (Hourly/Multi/Midnight)
+   */
+  public function testAfterPay_1_1_1(AcceptanceTester $I)
+  {
+    $this->applyScenario('1_1_1');
+    $I->amOnPage('/?ticket_id=PAY_111');
+    $I->waitForText('TEST MODE: [1_1_1]', 5);
+
+    $I->click('#payButton');
+    $I->waitForElementVisible('#successOverlay', 10);
+    $I->click('#successOverlay button.btn-secondary');
+
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
+    $I->see('23:59', '#paymentInfoExitValue');
   }
 }

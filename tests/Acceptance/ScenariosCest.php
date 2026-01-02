@@ -13,7 +13,7 @@ class ScenariosCest
   private static $mockPid;
   private static $phpServerPid;
   private static $port = 8022;
-  private static $originalConfig;
+  private static $configFile = 'config_test.ini';
 
   public function _before(AcceptanceTester $I): void
   {
@@ -21,22 +21,20 @@ class ScenariosCest
     $cmd = "php tests/MockServer.php 8099 > tests/mock_output.log 2>&1 & echo $!";
     self::$mockPid = trim(shell_exec($cmd));
 
-    $cmdPhp = "php -S 127.0.0.1:" . self::$port . " > tests/php_server.log 2>&1 & echo $!";
+    // Start PHP Server with custom config env var
+    $cmdPhp = "PARK_CONFIG_FILE=" . self::$configFile . " php -S 127.0.0.1:" . self::$port . " > tests/php_server.log 2>&1 & echo $!";
     self::$phpServerPid = trim(shell_exec($cmdPhp));
 
     sleep(2); // Wait for boot
-
-    if (file_exists('config.ini')) {
-      self::$originalConfig = file_get_contents('config.ini');
-    }
   }
 
   public function _after(AcceptanceTester $I): void
   {
-    // Restore config and kill processes logic (same as before)
-    if (self::$originalConfig !== null) {
-      file_put_contents('config.ini', self::$originalConfig);
+    // Clean up test config
+    if (file_exists(self::$configFile)) {
+      unlink(self::$configFile);
     }
+
     if (self::$mockPid)
       shell_exec("kill " . self::$mockPid);
     if (self::$phpServerPid)
@@ -53,10 +51,7 @@ currency = "PLN"
 hourly_rate = 5.00
 free_minutes = 15
 
-[parking_modes]
-time_mode = "daily"
-duration_mode = "multi_day"
-day_counting = "from_entry"
+
 
 [api]
 api_url = "tcp://127.0.0.1:8099"
@@ -70,7 +65,7 @@ entity_id = 1
 scenario_test = true
 selected_scenario = "' . $scenarioString . '"
 ';
-    file_put_contents('config.ini', $configContent);
+    file_put_contents(self::$configFile, $configContent);
   }
 
   // --- TRUE E2E UI TESTS ---
@@ -116,6 +111,9 @@ selected_scenario = "' . $scenarioString . '"
     $I->dontSeeElement('#exitTimeBtn.active');
 
     // Check opacity via JS execution if needed, or rely on class check
+    // Wait for opacity transition
+    $I->waitForElement('#exitTimeBtn[style*="opacity: 0.5"]', 5);
+
     $opacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitTimeBtn')).opacity");
     $I->assertLessThan(1.0, $opacity, 'Time button should be faded out (disabled)');
   }
@@ -132,6 +130,9 @@ selected_scenario = "' . $scenarioString . '"
     // Buttons: Time active, Date disabled
     $I->seeElement('#exitTimeBtn.active');
     $I->dontSeeElement('#exitDateBtn.active');
+
+    // Wait for opacity transition
+    $I->waitForElement('#exitDateBtn[style*="opacity: 0.5"]', 5);
 
     $opacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitDateBtn')).opacity");
     $I->assertLessThan(1.0, $opacity, 'Date button should be faded out (disabled)');

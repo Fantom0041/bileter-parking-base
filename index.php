@@ -1,7 +1,8 @@
 <?php
 date_default_timezone_set('Europe/Warsaw');
 // 1. Load Configuration
-$config = parse_ini_file('config.ini', true);
+$configFile = getenv('PARK_CONFIG_FILE') !== false ? getenv('PARK_CONFIG_FILE') : 'config.ini';
+$config = parse_ini_file($configFile, true);
 
 // 2. Setup API
 require_once 'ApiClient.php';
@@ -183,9 +184,9 @@ if ($ticket) {
       // If Daily + Free Period passed, calculate properly.
 
       // Determine mode logic (simplified replication of JS logic)
-      $feeType = $ticket['api_data']['FEE_TYPE'] ?? ($config['parking_modes']['time_mode'] == 'daily' ? '0' : '1');
-      $feeMultiDay = $ticket['api_data']['FEE_MULTI_DAY'] ?? ($config['parking_modes']['duration_mode'] == 'multi_day' ? '1' : '0');
-      $feeStartsType = $ticket['api_data']['FEE_STARTS_TYPE'] ?? ($config['parking_modes']['day_counting'] == 'from_midnight' ? '1' : '0');
+      $feeType = $ticket['api_data']['FEE_TYPE'] ?? '0'; // Default to Daily (0)
+      $feeMultiDay = $ticket['api_data']['FEE_MULTI_DAY'] ?? '1'; // Default to Multi-Day (1)
+      $feeStartsType = $ticket['api_data']['FEE_STARTS_TYPE'] ?? '0'; // Default to From Entry (0)
 
       $isDaily = ($feeType == '0');
       $isSingleDay = ($feeMultiDay == '0');
@@ -612,21 +613,21 @@ if ($ticket) {
       if (isset($ticket['api_data']['FEE_TYPE'])) {
         echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "daily" : "hourly") . "'";
       } else {
-        echo "'" . ($config['parking_modes']['time_mode'] ?? 'hourly') . "'";
+        echo "'" . ('daily') . "'";
       }
       ?>,
       duration_mode: <?php
       if (isset($ticket['api_data']['FEE_MULTI_DAY'])) {
         echo $ticket['api_data']['FEE_MULTI_DAY'] == 1 ? "'multi_day'" : "'single_day'";
       } else {
-        echo "'" . ($config['parking_modes']['duration_mode'] ?? 'single_day') . "'";
+        echo "'" . ('multi_day') . "'";
       }
       ?>,
       day_counting: <?php
       if (isset($ticket['api_data']['FEE_STARTS_TYPE'])) {
         echo $ticket['api_data']['FEE_STARTS_TYPE'] == 1 ? "'from_midnight'" : "'from_entry'";
       } else {
-        echo "'" . ($config['parking_modes']['day_counting'] ?? 'from_entry') . "'";
+        echo "'" . ('from_entry') . "'";
       }
       ?>,
       fee_type_raw: <?php echo isset($ticket['api_data']['FEE_TYPE']) ? $ticket['api_data']['FEE_TYPE'] : 'null'; ?>,
