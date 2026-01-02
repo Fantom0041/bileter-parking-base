@@ -531,11 +531,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateRealTimeClock() {
         if (isUserInteracted) return;
 
-        const now = new Date();
-        const entry = new Date(ENTRY_TIME);
+        let now = new Date();
+        
+        // Custom Rule: If VALID_TO is in the future, spinner starts from VALID_TO
+        if (CONFIG.valid_to) {
+             const validTo = new Date(CONFIG.valid_to);
+             if (validTo > now) {
+                 now = validTo;
+             }
+        }
+
+        let baseTime = new Date(ENTRY_TIME);
+        if (CONFIG.valid_to) {
+            baseTime = new Date(CONFIG.valid_to);
+        }
 
         // Calculate minutes difference
-        const diffMs = now - entry;
+        const diffMs = now - baseTime;
         const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
 
         // Convert to degrees based on current mode
@@ -573,12 +585,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const entryCollapsed = document.getElementById('entryCollapsed');
         const exitCollapsed = document.getElementById('exitCollapsed');
 
-        // Entry Cursor: Generally no if ticket exists
-        const isEntryEditable = API_SETTINGS.ticket_exist != '1';
-        
-        if (entryCollapsed) {
-            entryCollapsed.style.cursor = isEntryEditable ? 'pointer' : 'default';
-        }
+      
+  
+       
 
         // Exit Cursor: Collapsed view is generally read-only in this design
         // because editable modes use expanded view.
@@ -774,21 +783,9 @@ document.addEventListener('DOMContentLoaded', () => {
              currentExitTime = targetDate;
         }
 
-        // START Date Editability (Rule: "Read Only" if ticket exists or scenario dictates)
-        // Check `newTicketForm` is handled separately. Here we check `editEntryBtn`.
-        // If TICKET_EXIST=1, Start is Read-Only.
+        
         if (editEntryBtn) {
-            // "nie edytujemy" for practically all scenarios where TICKET_EXIST is 1
-            if (API_SETTINGS.ticket_exist == '1') {
-                 editEntryBtn.style.display = 'none';
-            } else {
-                 // New Ticket / Pre-booking: Allow edit?
-                 // Prompt says: "START DATA / START GODZINA: nie edytujemy" for most scenarios in the table.
-                 // But for "New Ticket", we probably want to allow it. 
-                 // Assuming logic: If New Ticket, check scenarios?
-                 // Let's stick to: If TICKET_EXIST=0, show button.
-                 editEntryBtn.style.display = 'flex';
-            }
+            editEntryBtn.style.display = 'none';
         }
 
         // --- NEW RESTRICTION: Disable START DATE for Single Day Mode ---
@@ -803,12 +800,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   entryTimeBtn.classList.add('active');
              }
         } else {
-             if (isEditable && entryDateBtn) {
-                  if (!API_SETTINGS.ticket_exist || API_SETTINGS.ticket_exist == '0') {
-                        entryDateBtn.style.opacity = '1';
-                        entryDateBtn.style.pointerEvents = 'auto';
-                  }
-             }
+            
         }
         
         // Final Spinner State
@@ -854,17 +846,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const entryTime = new Date(ENTRY_TIME);
             updateExitTimeDisplay(entryTime);
         }
-        // Use VALID_TO as base if ticket exists and it's valid
-        let baseExitTime = new Date(ENTRY_TIME);
-        if (API_SETTINGS.ticket_exist == '1' && CONFIG.valid_to) {
-             const validTo = new Date(CONFIG.valid_to);
-             if (validTo > baseExitTime) {
-                 baseExitTime = validTo;
-             }
+        // Use VALID_TO as base (ticket_exist check removed)
+        let baseReference = new Date(ENTRY_TIME);
+        if (CONFIG.valid_to) {
+             baseReference = new Date(CONFIG.valid_to);
         }
         
-        // Calculate initial degrees based on baseExitTime
-        const diffMs = baseExitTime - new Date(ENTRY_TIME);
+        let baseExitTime = new Date(baseReference);
+        const now = new Date();
+        if (now > baseExitTime) {
+            baseExitTime = now;
+        }
+        
+        // Calculate initial degrees based on baseReference
+        const diffMs = baseExitTime - baseReference;
         const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
         
         if (API_SETTINGS.ticket_exist == '1') {
@@ -1049,6 +1044,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate potential total value
         let potentialTotal = potentialTurns * 360 + newValue;
 
+        console.log(`[SLIDER DEBUG] val=${newValue} last=${lastSliderValue} diff=${diff} potTurns=${potentialTurns} potTotal=${potentialTotal}`);
+
         // --- FIX: Allow negative values for Multi-Day Hourly mode (going back in time relative to day start) ---
         let minLimit = 0;
         const currentScenario = getModeScenario();
@@ -1058,6 +1055,37 @@ document.addEventListener('DOMContentLoaded', () => {
             // Limit is -(selectedDays * 24 hours * 60 minutes) converted to degrees
             // 360 degrees = 60 minutes.
             minLimit = -(selectedDays * 24 * 360);
+        }
+
+        // --- FIX: Max Limit for Single Day Hourly (End of Base Day) ---
+        let maxLimit = Infinity;
+        if (currentScenario === 'scenario_1_0_0' || currentScenario === 'scenario_1_0_1') {
+            // Need base time to calculate max limit. 
+            // We can approximate or retrieve base time same way updateSpinner does.
+            // But we need it efficiently here.
+            
+            // Re-derive base time (simplified from updateSpinner logic)
+            let baseTime = new Date(ENTRY_TIME);
+            if (CONFIG.valid_to) {
+                const vt = new Date(CONFIG.valid_to);
+                // If VALID_TO > ENTRY, base is VALID_TO
+                // Note: Logic in updateSpinner says: if (validTo > baseExitTime) baseExitTime = validTo;
+                // Here we need the same authoritative base.
+                if (vt > baseTime) baseTime = vt;
+            }
+
+            // Calculate minutes to end of that base day
+            const endOfDay = new Date(baseTime);
+            endOfDay.setHours(23, 59, 59, 999);
+            
+            const msToEnd = endOfDay - baseTime;
+            const minutesToEnd = Math.floor(msToEnd / 60000); // Floor to keep safe
+            
+            // Convert to degrees (1 rotation = 60 minutes)
+            // 360 deg = 60 mins -> 6 deg = 1 min
+            maxLimit = (minutesToEnd / 60) * 360;
+            
+            // Add a small buffer? No, strict is better.
         }
 
         // Prevent going below minLimit
@@ -1073,6 +1101,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Update display to show limited value
+            updateSpinner(totalDegrees, false);
+            return;
+        }
+
+        // Prevent going above maxLimit
+        if (potentialTotal > maxLimit) {
+            // Clamp to maxLimit
+            currentTurns = Math.floor(maxLimit / 360);
+            lastSliderValue = (maxLimit % 360 + 360) % 360; 
+            // Note: maxLimit is positive, so normal mod is fine, but formula safe for sign.
+            
+            totalDegrees = maxLimit;
+            
+            const slider = $("#slider").data("roundSlider");
+            if (slider) {
+                 slider.setValue(lastSliderValue);
+            }
+            
             updateSpinner(totalDegrees, false);
             return;
         }
@@ -1200,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Define base time for Exit Editing
         let exitBaseTime = entryTime;
-        if (API_SETTINGS.ticket_exist == '1' && CONFIG.valid_to) {
+        if (CONFIG.valid_to) {
             exitBaseTime = new Date(CONFIG.valid_to);
         }
 
@@ -1316,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- VALIDATION: Check against VALID_TO ---
         // --- VALIDATION: Check against VALID_TO ---
-        if (CONFIG.valid_to && API_SETTINGS.ticket_exist == '1') {
+        if (CONFIG.valid_to) {
              const validToDate = new Date(CONFIG.valid_to);
              let calculatedExitDate = null;
              
@@ -1467,6 +1513,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update exit time display fields
     function updateExitTimeDisplay(exitTime) {
+        console.log('exitTime', exitTime);
+        console.log('exitDateValue', exitDateValue);
+        
         if (!exitDateValue || !exitTimeValue) return;
 
         const day = String(exitTime.getDate()).padStart(2, '0');
