@@ -6,7 +6,11 @@ $config = parse_ini_file('config.ini', true);
 // 2. Setup API
 require_once 'ApiClient.php';
 require_once 'Logger.php';
+require_once 'ScenarioTester.php'; // Include the new tester class
+
 $logger = new Logger();
+$scenarioTester = new ScenarioTester($config); // Initialize Tester
+
 
 // 3. Get Ticket ID
 $ticket_id = $_GET['ticket_id'] ?? null;
@@ -19,6 +23,16 @@ $error = null;
 // 4. Validate Ticket via API
 $is_simulated = isset($_GET['simulated']) && $_GET['simulated'] == '1';
 $logger->log("is_simulated: " . $is_simulated);
+
+// --- SCENARIO TEST: Force Simulated Ticket if Testing is Enabled and no ID provided ---
+// This allows visiting index.php?ticket_id=TEST without needing real API
+if ($scenarioTester->isEnabled() && $ticket_id && !$is_simulated) {
+  // If we are testing scenarios, we might want to bypass real API calls
+  // strictly for UI behavior testing. 
+  // Uncomment the line below if you want to force simulation even without ?simulated=1
+  // $is_simulated = true; 
+}
+
 if ($ticket_id) {
   $logger->log("ticket_id: " . $ticket_id);
   if ($is_simulated) {
@@ -59,23 +73,69 @@ if ($ticket_id) {
               'api_data' => $info['defaults'] ?? [] // Use defaults if available
             ];
           } else {
-            // Valid response but no tickets and no is_new flag? match legacy behavior
-            $error = "Bilet nie znaleziony w systemie.";
+            // If testing, we might want to force a ticket creation to see the UI
+            if ($scenarioTester->isEnabled()) {
+              $ticket = [
+                'plate' => $ticket_id,
+                'entry_time' => date('Y-m-d H:i:00'),
+                'status' => 'active',
+                'is_new' => true,
+                'api_data' => []
+              ];
+            } else {
+              $error = "Bilet nie znaleziony w systemie.";
+            }
           }
         } else {
-          $error = "Bilet nie znaleziony w systemie (Błąd API).";
+          if ($scenarioTester->isEnabled()) {
+            $ticket = [
+              'plate' => $ticket_id,
+              'entry_time' => date('Y-m-d H:i:00'),
+              'status' => 'active',
+              'is_new' => true,
+              'api_data' => []
+            ];
+          } else {
+            $error = "Bilet nie znaleziony w systemie (Błąd API).";
+          }
         }
 
       } else {
-        $error = "Błąd komunikacji z systemem parkingowym (Login): " . ($loginResult['error'] ?? 'Nieznany błąd');
+        // Allow bypass if testing
+        if ($scenarioTester->isEnabled()) {
+          $ticket = [
+            'plate' => $ticket_id,
+            'entry_time' => date('Y-m-d H:i:00'),
+            'status' => 'active',
+            'is_new' => true,
+            'api_data' => []
+          ];
+        } else {
+          $error = "Błąd komunikacji z systemem parkingowym (Login): " . ($loginResult['error'] ?? 'Nieznany błąd');
+        }
       }
     } catch (Exception $e) {
       error_log("API Error: " . $e->getMessage());
-      $error = "Błąd krytyczny komunikacji z systemem.";
+      if ($scenarioTester->isEnabled()) {
+        $ticket = [
+          'plate' => $ticket_id,
+          'entry_time' => date('Y-m-d H:i:00'),
+          'status' => 'active',
+          'is_new' => true,
+          'api_data' => []
+        ];
+      } else {
+        $error = "Błąd krytyczny komunikacji z systemem.";
+      }
     }
   } else {
     $error = "Brak konfiguracji API.";
   }
+}
+
+// --- APPLY SCENARIO OVERRIDES ---
+if ($ticket) {
+  $scenarioTester->applyOverrides($ticket);
 }
 
 // 5. Calculate Fee
@@ -128,13 +188,14 @@ if ($ticket) {
       $feeStartsType = $ticket['api_data']['FEE_STARTS_TYPE'] ?? ($config['parking_modes']['day_counting'] == 'from_midnight' ? '1' : '0');
 
       $isDaily = ($feeType == '0');
-      $isMultiDay = ($feeMultiDay == '1');
       $isSingleDay = ($feeMultiDay == '0');
 
-      // Calculate EXIT time for initial fee check
-      $calcExitTime = clone $current_time;
-
-      if ($isDaily && $isSingleDay) {
+      // If Scenario Test is active, we skip the API Pre-calc call because it won't respect our fake flags 
+      // (API returns real data). We settle for local fee estimation or 0.
+      if ($scenarioTester->isEnabled()) {
+        // Dummy calculation for UI test
+        $fee = 10.00;
+      } elseif ($isDaily && $isSingleDay) {
         // Daily + Single Day: Fee is calculated until End of Day (23:59:59)
         $calcExitTime = clone $entry_time;
         $calcExitTime->setTime(23, 59, 00); // Set to end of day with 00 seconds
@@ -191,6 +252,14 @@ if ($ticket) {
 </head>
 
 <body>
+
+  <?php if ($scenarioTester->isEnabled()): ?>
+    <div
+      style="position:fixed; top:0; left:0; width:100%; background:orange; color:black; text-align:center; padding:2px; font-size:10px; z-index:9999;">
+      <?php echo $scenarioTester->getScenarioDescription(); ?>
+    </div>
+  <?php endif; ?>
+
   <!-- DEBUG: TicketID: <?php echo htmlspecialchars(var_export($ticket_id, true)); ?> Ticket: <?php echo htmlspecialchars(var_export($ticket, true)); ?> -->
   <div class="app-container">
     <!-- Header -->
@@ -533,19 +602,9 @@ if ($ticket) {
     const INITIAL_FEE = <?php echo $fee; ?>;
     const HOURLY_RATE = <?php echo $config['settings']['hourly_rate']; ?>;
 
-    // Map API settings to JS Config
-    // FEE_TYPE: 0 = daily, 1 = hourly
-    // FEE_STARTS_TYPE: 0 = 24h from entry, 1 = from midnight
-    // FEE_MULTI_DAY: 0 = single day (no), 1 = multi day (yes)
-    // Map API settings to JS Config with Fallback to config.ini
-    // FEE_TYPE: 0 = daily, 1 = hourly
-    // FEE_STARTS_TYPE: 0 = 24h from entry, 1 = from midnight
-    // FEE_MULTI_DAY: 0 = single day (no), 1 = multi day (yes)
     const API_SETTINGS = {
       time_mode: <?php
       if (isset($ticket['api_data']['FEE_TYPE'])) {
-        // FEE_TYPE: 0 = daily, 1 = hourly
-        // If type is 0 (daily), we might want to enforce restrictions.
         echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "daily" : "hourly") . "'";
       } else {
         echo "'" . ($config['parking_modes']['time_mode'] ?? 'hourly') . "'";
@@ -575,7 +634,6 @@ if ($ticket) {
       valid_to: <?php echo isset($ticket['api_data']['VALID_TO']) ? json_encode($ticket['api_data']['VALID_TO']) : 'null'; ?>
     };
 
-    // Override local config with API settings for logic
     const CONFIG = {
       default_duration: 60,
       currency: "<?php echo $config['settings']['currency']; ?>",
@@ -589,22 +647,7 @@ if ($ticket) {
     const ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";
     let ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:00') : ''; ?>";
 
-    // Detect "New Ticket" (Pre-booking) state
-    // If created < 1 minute ago AND not paid, assume new.
-    // Or better, pass a query param or just logic:
     const IS_PRE_BOOKING = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] !== 'paid' && $ticket_id) ? 'true' : 'false'; ?>;
-    // Note: Ideally we'd have a specific flag from creation referer, but this checks if it's an active unpaid ticket.
-    // Actually, "New Ticket" vs "Scanned".
-    // Use a heuristic: If we just created it, we are pre-booking. If we scanned it, we are paying.
-    // But the requirement says: "If scanning an existing ticket... Start remains read-only."
-    // "If user arrived via New Ticket form..."
-    // Let's assume for this refactor that ALL active tickets viewed here allow editing Start logic IF they are "fresh" or explicitly "Pre-booking".
-    // But to be safe, let's enable it for all ACTIVE/UNPAID tickets for now as per "Pre-booking" generic logic, 
-    // OR restricting it to only recently created ones might be safer?
-    // Let's strictly follow: "Detect Entry Source... allow editing... Restriction: If scanning existing... read-only"
-    // Since we don't have referer data here easily without URL params, I'll default to: ALLOW EDIT if it's active.
-    // Wait, "Time Drift Check" allows paying. "Pre-booking" allows setting future start.
-    // I will add IS_PRE_BOOKING = true for all active tickets in this demo env.
     const IS_EDITABLE_START = IS_PRE_BOOKING;
 
     // Parking modes configuration
@@ -612,28 +655,20 @@ if ($ticket) {
     const DURATION_MODE = API_SETTINGS.duration_mode; // single_day or multi_day
     const DAY_COUNTING = API_SETTINGS.day_counting; // from_entry or from_midnight
 
-    // Core Matrix Configuration
     const FEE_CONFIG = {
-      FEE_MULTI_DAY: API_SETTINGS.fee_multi_day_raw !== null ? parseInt(API_SETTINGS.fee_multi_day_raw) : (DURATION_MODE === 'multi_day' ? 1 : 0),
-      FEE_TYPE: API_SETTINGS.fee_type_raw !== null && API_SETTINGS.fee_type_raw !== 'null' ? parseInt(API_SETTINGS.fee_type_raw) : (TIME_MODE === 'hourly' ? 1 : 0),
-      FEE_STARTS_TYPE: API_SETTINGS.fee_starts_type_raw !== null ? parseInt(API_SETTINGS.fee_starts_type_raw) : (DAY_COUNTING === 'from_midnight' ? 1 : 0),
+      FEE_MULTI_DAY: API_SETTINGS.fee_multi_day_raw !== null ? parseInt(API_SETTINGS.fee_multi_day_raw) : (API_SETTINGS.duration_mode === 'multi_day' ? 1 : 0),
+      FEE_TYPE: API_SETTINGS.fee_type_raw !== null && API_SETTINGS.fee_type_raw !== 'null' ? parseInt(API_SETTINGS.fee_type_raw) : (API_SETTINGS.time_mode === 'hourly' ? 1 : 0),
+      FEE_STARTS_TYPE: API_SETTINGS.fee_starts_type_raw !== null ? parseInt(API_SETTINGS.fee_starts_type_raw) : (API_SETTINGS.day_counting === 'from_midnight' ? 1 : 0),
       TICKET_EXIST: parseInt(API_SETTINGS.ticket_exist || 0),
       VALID_TO: API_SETTINGS.valid_to ? new Date(API_SETTINGS.valid_to) : null
     };
 
-    /**
-     * Determines the current logic scenario based on the 3-bit matrix.
-     * Returns a string ID: scenario_TYPE_MULTI_STARTS (e.g., scenario_0_0_0)
-     * TYPE: 0=Daily, 1=Hourly
-     * MULTI: 0=Single, 1=Multi
-     * STARTS: 0=From Entry, 1=Midnight
-     */
     function getModeScenario() {
       return `scenario_${FEE_CONFIG.FEE_TYPE}_${FEE_CONFIG.FEE_MULTI_DAY}_${FEE_CONFIG.FEE_STARTS_TYPE}`;
     }
 
-    console.log("FEE_CONFIG:", FEE_CONFIG); // DEBUG
-    console.log("Current Scenario:", getModeScenario()); // DEBUG
+    console.log("FEE_CONFIG:", FEE_CONFIG);
+    console.log("Current Scenario:", getModeScenario());
   </script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>

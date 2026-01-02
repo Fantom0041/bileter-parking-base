@@ -6,9 +6,19 @@
 actor: AcceptanceTester
 modules:
     enabled:
-        - PhpBrowser:
+        - WebDriver:
             url: http://127.0.0.1:8022
-# Add Codeception\Step\Retry trait to AcceptanceTester to enable retries
+            browser: chrome
+            host: 127.0.0.1
+            port: 9515
+            path: '/'                     # <--- ADD THIS LINE
+            window_size: 1920x1080
+            capabilities:
+                chromeOptions:
+                    # Adjust this path if your chrome binary is elsewhere
+                    binary: "/home/f/Downloads/chrome-linux64/chrome"
+                    args: ["--headless", "--disable-gpu", "--no-sandbox"]
+        - Asserts
 step_decorators:
     - Codeception\Step\ConditionalAssertion
     - Codeception\Step\TryTo

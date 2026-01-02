@@ -1120,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (debounceTimer) clearTimeout(debounceTimer);
             setLoadingState();
             debounceTimer = setTimeout(() => {
-                fetchCalculatedFee(addedMinutes);
+                fetchCalculatedFee(now);
             }, 1000);
 
             return; // Exit early for entry mode

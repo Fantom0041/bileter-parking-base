@@ -3,3 +3,4 @@ app.log
 vendor/
 composer.lock
 .phpunit.cache
+*.log
