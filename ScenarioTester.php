@@ -43,6 +43,11 @@ class ScenarioTester
     $ticket['api_data']['FEE_TYPE'] = $this->feeType;
     $ticket['api_data']['FEE_STARTS_TYPE'] = $this->feeStartsType;
 
+    // Calculate and set VALID_TO
+    if (isset($ticket['entry_time'])) {
+      $ticket['api_data']['VALID_TO'] = $this->calculateValidTo($ticket['entry_time']);
+    }
+
     // Add a visual indicator flag (optional, useful for debugging)
     $ticket['is_scenario_test'] = true;
 
@@ -52,6 +57,33 @@ class ScenarioTester
       // Usually manual testing of scenarios implies checking the Edit Logic of an existing/new session.
       // We leave TICKET_EXIST as is, or default to 1 if missing.
       $ticket['api_data']['TICKET_EXIST'] = 1;
+    }
+  }
+
+  private function calculateValidTo($entryTimeStr)
+  {
+    try {
+      $entry = new DateTime($entryTimeStr);
+      $validTo = clone $entry;
+
+      $isDailyEntry = ($this->feeType === 0 && $this->feeStartsType === 0);
+
+      if ($isDailyEntry) {
+        $validTo->modify('+1 day');
+      } elseif ($this->feeMultiDay === 0) {
+        // Single Day non-DailyEntry -> End of Day
+        $validTo->setTime(23, 59, 59);
+      } elseif ($this->feeType === 0 && $this->feeStartsType === 1) {
+        // Daily Multi Midnight -> End of Day
+        $validTo->setTime(23, 59, 59);
+      } else {
+        // Hourly Multi -> Start + 1h 
+        $validTo->modify('+1 hour');
+      }
+
+      return $validTo->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+      return null;
     }
   }
 

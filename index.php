@@ -250,6 +250,11 @@ if ($ticket) {
     rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.css" rel="stylesheet" />
 </head>
+<script>
+  if (typeof global === 'undefined') {
+    window.global = window;
+  }
+</script>
 
 <body>
 
@@ -633,6 +638,8 @@ if ($ticket) {
       ticket_barcode: <?php echo isset($ticket['api_data']['BARCODE']) ? json_encode($ticket['api_data']['BARCODE']) : 'null'; ?>,
       valid_to: <?php echo isset($ticket['api_data']['VALID_TO']) ? json_encode($ticket['api_data']['VALID_TO']) : 'null'; ?>
     };
+
+    const SCENARIO_TEST_MODE = <?php echo $scenarioTester->isEnabled() ? 'true' : 'false'; ?>;
 
     const CONFIG = {
       default_duration: 60,

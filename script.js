@@ -1,4 +1,45 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- TOASTER COMPONENT ---
+    function showToast(message, type = 'error') {
+        let container = document.querySelector('.toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast-message ${type}`;
+        
+        const textSpan = document.createElement('span');
+        textSpan.textContent = message;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'toast-close';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.onclick = () => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        };
+
+        toast.appendChild(textSpan);
+        toast.appendChild(closeBtn);
+        container.appendChild(toast);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
+    }
+
     // --- NOWA SESJA PARKOWANIA ---
     const newTicketForm = document.getElementById('newTicketForm');
     if (newTicketForm) {
@@ -40,17 +81,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.location.href = `index.php?ticket_id=${data.ticket_id}`;
                     }
                 } else {
-                    alert('Błąd: ' + data.message);
+                    console.error('Błąd: ' + data.message);
+                    const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                        ? `API Error: ${data.message}` 
+                        : "Wystąpił błąd podczas tworzenia biletu.";
+                    showToast(displayMsg);
+                    
                     btn.innerText = originalText;
                     btn.disabled = false;
                 }
             } catch (error) {
                 console.error(error);
-                alert('Błąd sieci: ' + error.message);
+                const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                    ? `Network/Server Error: ${error.message}` 
+                    : "Wystąpił błąd podczas komunikacji z serwerem.";
+                showToast(displayMsg);
+                
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
         });
+
         return; // Stop execution if we are on the "New Ticket" page
     }
 
@@ -697,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
              // Calculate the fixed stop time based on scenario logic if not already calculated
              // For 0_0_0 and 0_0_1, it's essentially fixed.
              let targetDate = new Date(ENTRY_TIME);
+             console.log('UI DEBUG: Scen=' + scenario + ' Entry=' + ENTRY_TIME + ' TgtStart=' + targetDate.toISOString());
              if (scenario === 'scenario_0_0_0') {
                  // Start + 1 Day, Same Time (24h)
                  targetDate.setDate(targetDate.getDate() + 1);
@@ -717,6 +769,9 @@ document.addEventListener('DOMContentLoaded', () => {
              if (exitTimeDisplayCollapsed) {
                  exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
              }
+             
+             // Bugfix: Update global currentExitTime to matches the displayed fixed time
+             currentExitTime = targetDate;
         }
 
         // START Date Editability (Rule: "Read Only" if ticket exists or scenario dictates)
@@ -760,8 +815,10 @@ document.addEventListener('DOMContentLoaded', () => {
         isEditable = showSpinner;
         setSliderState(isEditable);
 
-        updateSpinner(totalDegrees);
-        updateSpinnerLabel();
+        if (showSpinner) {
+            updateSpinner(totalDegrees);
+            updateSpinnerLabel();
+        }
 
         // Calculate end time for single_day modes
         if (currentDurationMode === 'single_day') {
@@ -1504,12 +1561,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 // }
             } else {
                 console.error('Fee calculation failed:', data.message);
+                const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                    ? `Fee Calc Error: ${data.message}` 
+                    : "Nie udało się przeliczyć opłaty.";
+                showToast(displayMsg);
+                
                 // Reset to initial fee on error
                 currentFee = INITIAL_FEE;
                 updatePayButton();
             }
         } catch (error) {
             console.error('Error fetching fee:', error);
+             const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                ? `Fee Calc Network Error: ${error.message}` 
+                : "Błąd połączenia przy wycenie.";
+             showToast(displayMsg);
+             
             // Reset to initial fee on error
             currentFee = INITIAL_FEE;
             updatePayButton();
@@ -1535,7 +1602,7 @@ document.addEventListener('DOMContentLoaded', () => {
              payButton.classList.add('btn-glass');
              payButton.disabled = true; // Still disabled as there's nothing to pay
         } else {
-             payButton.textContent = "Wyjazd bez opłaty";
+             payButton.textContent = "Do zapłaty: 0,00 " + CONFIG.currency;
              payButton.classList.remove('btn-glass');
              payButton.disabled = true;
         }
@@ -1562,7 +1629,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Check if diff is substantial (more than 1 minute?)
             // Allow 60s tolerance?
             if (serverTimeStub.getTime() - currentExitTime.getTime() > 60000) {
-                alert('Wybrany czas wyjazdu już minął. Aktualizacja do bieżącego czasu.');
+                console.log('DEBUG DATE: ' + serverTimeStub.toISOString() + ' vs ' + currentExitTime.toISOString() + ' | Diff: ' + (serverTimeStub - currentExitTime));
+                console.warn('Wybrany czas wyjazdu już minął. Aktualizacja do bieżącego czasu.');
 
                 // Reset spinner to "Now"
                 updateSpinner(0);
@@ -1628,13 +1696,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 successOverlay.classList.add('visible');
                 paymentSheet.style.transform = 'translate(-50%, 100%)';
             } else {
-                alert('Płatność nieudana: ' + data.message);
+                console.error('Płatność nieudana: ' + data.message);
+                const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                    ? `Payment Error: ${data.message}` 
+                    : "Płatność nieudana. Spróbuj ponownie.";
+                showToast(displayMsg);
+                
                 payButton.innerText = originalText;
                 payButton.disabled = false;
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Wystąpił błąd: ' + error.message);
+            console.error('Wystąpił błąd: ' + error.message);
+            
+            const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                ? `Payment Network Error: ${error.message}` 
+                : "Wystąpił błąd podczas płatności.";
+            showToast(displayMsg);
+
             payButton.innerText = originalText;
             payButton.disabled = false;
         }
@@ -1725,7 +1804,7 @@ document.addEventListener('DOMContentLoaded', () => {
         savePlateBtn.addEventListener('click', () => {
             const val = plateSheetInput.value.trim().toUpperCase();
             if (val.length < 2) {
-                alert('Numer rejestracyjny jest za krótki.');
+                console.warn('Numer rejestracyjny jest za krótki.');
                 return;
             }
             if (plateDisplay && val === plateDisplay.innerText.trim()) {
@@ -1781,18 +1860,26 @@ document.addEventListener('DOMContentLoaded', () => {
                      const data = await response.json();
 
                      if (data.success) {
-                         // Reload to refresh all data with new plate in URL
-                         const currentUrl = new URL(window.location.href);
-                         currentUrl.searchParams.set('ticket_id', pendingNewPlate);
-                         window.location.href = currentUrl.toString();
+                         // Reload page to reflect changes
+                         window.location.reload();
                      } else {
-                         alert('Błąd zmiany numeru: ' + data.message);
-                         // Re-open modal?
-                         openPlateModal();
+                         console.error('Błąd zmiany numeru: ' + data.message);
+                         const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                            ? `Plate Change Error: ${data.message}` 
+                            : "Nie udało się zmienić numeru rejestracyjnego.";
+                         showToast(displayMsg);
+                         
+                         // Reset state?
+                         plateConfirmModal.classList.remove('visible');
                      }
                  } catch (error) {
                      console.error(error);
-                     alert('Błąd komunikacji: ' + error.message);
+                     console.error('Błąd komunikacji: ' + error.message);
+                     
+                     const displayMsg = (typeof SCENARIO_TEST_MODE !== 'undefined' && SCENARIO_TEST_MODE) 
+                        ? `Plate Change Network Error: ${error.message}` 
+                        : "Błąd połączenia.";
+                     showToast(displayMsg);
                  } finally {
                      confirmPlateChange.innerText = originalText;
                      confirmPlateChange.disabled = false;
@@ -1812,7 +1899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Trigger download via GET request
                 window.location.href = `api.php?action=download_receipt&receipt_number=${lastReceiptNumber}`;
             } else {
-                alert('Numer paragonu nie jest dostępny.');
+                console.warn('Numer paragonu nie jest dostępny.');
             }
         });
     }

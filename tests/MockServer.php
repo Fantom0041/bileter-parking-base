@@ -1,19 +1,24 @@
 <?php
 
 $port = $argv[1] ?? 12345;
-
 $socket = stream_socket_server("tcp://0.0.0.0:$port", $errno, $errstr);
+
 if (!$socket) {
-  file_put_contents('mock_server_error.log', "Error creating socket: $errstr ($errno)\n", FILE_APPEND);
   die("Error creating socket: $errstr ($errno)\n");
 }
 
-file_put_contents('mock_server.log', "Mock Server listening on port $port...\n", FILE_APPEND);
 echo "Mock Server listening on port $port...\n";
 
+// State file for payment persistence
+$stateFile = __DIR__ . '/_output/mock_state.json';
+if (!file_exists(dirname($stateFile)))
+  mkdir(dirname($stateFile), 0777, true);
+
+// Reset state on startup
+if (file_exists($stateFile))
+  unlink($stateFile);
+
 while ($conn = stream_socket_accept($socket)) {
-  file_put_contents('mock_server.log', "Connection accepted\n", FILE_APPEND);
-  // Read request
   $request = fgets($conn);
   if ($request === false) {
     fclose($conn);
@@ -21,8 +26,8 @@ while ($conn = stream_socket_accept($socket)) {
   }
 
   $data = json_decode($request, true);
+  echo "Received request: $request\n";
   if (!$data) {
-    fwrite($conn, json_encode(['STATUS' => -3, 'DESC' => 'Invalid JSON']) . "\n");
     fclose($conn);
     continue;
   }
@@ -30,119 +35,91 @@ while ($conn = stream_socket_accept($socket)) {
   $method = $data['METHOD'] ?? '';
   $orderId = $data['ORDER_ID'] ?? 0;
 
-  $response = ['STATUS' => -999]; // Default error
+  // Load current state
+  $state = file_exists($stateFile) ? json_decode(file_get_contents($stateFile), true) : [];
 
-  // Logic based on Method and Content
+  $response = ['STATUS' => -999, 'METHOD' => 'ERROR'];
+
   switch ($method) {
     case 'LOGIN':
-      $response = [
-        'METHOD' => 'LOGIN',
-        'ORDER_ID' => $orderId,
-        'STATUS' => 0,
-        'LOGIN_ID' => 'TEST_LOGIN_ID_123'
-      ];
+      $response = ['STATUS' => 0, 'LOGIN_ID' => 'MOCK_LOGIN', 'ORDER_ID' => $orderId, 'METHOD' => 'LOGIN'];
       break;
 
     case 'PARK_TICKET_GET_INFO':
       $barcode = $data['BARCODE'] ?? '';
 
-      if ($barcode === 'TEST_OK' || $barcode === 'TEST_LIVE') {
+      // Check if we have a stored state for this barcode
+      if (isset($state[$barcode])) {
+        $savedState = $state[$barcode];
         $response = [
-          'METHOD' => 'PARK_TICKET_GET_INFO',
+          'STATUS' => 0,
+          'TICKET_EXIST' => 1,
+          'REGISTRATION_NUMBER' => $barcode,
+          'VALID_FROM' => $savedState['valid_from'],
+          'VALID_TO' => $savedState['valid_to'],
+          'FEE' => $savedState['fee'], // Remaining fee
+          'FEE_PAID' => $savedState['fee_paid'], // Total paid
+          'FEE_TYPE' => $savedState['fee_type'] ?? 0,
+          'FEE_MULTI_DAY' => $savedState['fee_multi_day'] ?? 0,
           'ORDER_ID' => $orderId,
+          'METHOD' => 'PARK_TICKET_GET_INFO'
+        ];
+      } else {
+        // Default "Unpaid" State for tests
+        $response = [
           'STATUS' => 0,
           'TICKET_EXIST' => 1,
           'REGISTRATION_NUMBER' => $barcode,
           'VALID_FROM' => date('Y-m-d H:i:s', strtotime('-1 hour')),
-          'VALID_TO' => date('Y-m-d H:i:s', strtotime('+1 hour')),
-          'FEE' => 0,
-          'FEE_PAID' => 0
-        ];
-      } elseif ($barcode === 'TEST_NEW') {
-        // Not found, but valid query
-        $response = [
-          'METHOD' => 'PARK_TICKET_GET_INFO',
+          // Default valid_to is usually entry + grace period or 0
+          'VALID_TO' => date('Y-m-d H:i:s', strtotime('-1 hour + 15 minutes')),
+          'FEE' => 500, // 5.00 PLN to pay
+          'FEE_PAID' => 0,
           'ORDER_ID' => $orderId,
-          'STATUS' => 0,
-          'TICKET_EXIST' => 0
-        ];
-      } elseif ($barcode === 'TEST_FEE_500') {
-        // For fee calculation
-        // Need DATE_FROM / DATE_TO ??
-        $response = [
-          'METHOD' => 'PARK_TICKET_GET_INFO',
-          'ORDER_ID' => $orderId,
-          'STATUS' => 0,
-          'TICKET_EXIST' => 1,
-          'REGISTRATION_NUMBER' => 'TEST_FEE_500',
-          'VALID_FROM' => date('Y-m-d H:i:s', strtotime('-2 hours')),
-          'VALID_TO' => date('Y-m-d H:i:s', strtotime('+1 hour')),
-          'FEE' => 1000, // 10.00 PLN (if 2 hours * 5.00)
-          'FEE_PAID' => 0
-        ];
-      } elseif ($barcode === 'TEST_HOURLY') {
-        $response = [
-          'METHOD' => 'PARK_TICKET_GET_INFO',
-          'ORDER_ID' => $orderId,
-          'STATUS' => 0,
-          'TICKET_EXIST' => 1,
-          'REGISTRATION_NUMBER' => 'TEST_HOURLY',
-          'VALID_FROM' => date('Y-m-d H:i:s', strtotime('-1 hour')),
-          'VALID_TO' => date('Y-m-d H:i:s', strtotime('+1 hour')),
-          'FEE_TYPE' => 1, // Hourly
-          'FEE_MULTI_DAY' => 0, // Single day for now
-          'FEE' => 0,
-          'FEE_PAID' => 0
-        ];
-      } elseif ($barcode === 'TEST_DAILY') {
-        $response = [
-          'METHOD' => 'PARK_TICKET_GET_INFO',
-          'ORDER_ID' => $orderId,
-          'STATUS' => 0,
-          'TICKET_EXIST' => 1,
-          'REGISTRATION_NUMBER' => 'TEST_DAILY',
-          'VALID_FROM' => date('Y-m-d H:i:s', strtotime('-1 hour')),
-          'VALID_TO' => date('Y-m-d H:i:s', strtotime('+1 hour')),
-          'FEE_TYPE' => 0, // Daily
-          'FEE_MULTI_DAY' => 0,
-          'FEE' => 0,
-          'FEE_PAID' => 0
-        ];
-      } else {
-        // Simulated "Not Found" error from some systems or just empty
-        $response = [
-          'METHOD' => 'PARK_TICKET_GET_INFO',
-          'ORDER_ID' => $orderId,
-          'STATUS' => 0,
-          'TICKET_EXIST' => 0
+          'METHOD' => 'PARK_TICKET_GET_INFO'
         ];
       }
       break;
 
-    case 'PARK_TICKET_SET_PLATE':
-      // Return Success
+    case 'PARK_TICKET_PAY':
+      $barcode = $data['BARCODE'] ?? '';
+      $feePaid = $data['FEE'] ?? 0;
+      $dateTo = $data['DATE_TO'] ?? date('Y-m-d H:i:s');
+
+      // Save state: User just paid 'feePaid'.
+      // New State: Fee=Total Fee (preserved), FeePaid += feePaid, ValidTo = dateTo
+      $currentPaid = isset($state[$barcode]) ? $state[$barcode]['fee_paid'] : 0;
+      $currentFee = isset($state[$barcode]) ? $state[$barcode]['fee'] : 500; // Default assumed fee
+
+      $newState = [
+        'valid_from' => date('Y-m-d H:i:s', strtotime('-1 hour')),
+        'valid_to' => $dateTo,
+        'fee' => $currentFee, // Preserve Total Fee
+        'fee_paid' => $currentPaid + $feePaid,
+        // These would ideally come from the request or config, simplified here:
+        'fee_type' => 0,
+        'fee_multi_day' => 0
+      ];
+
+      $state[$barcode] = $newState;
+      file_put_contents($stateFile, json_encode($state));
+
       $response = [
-        'METHOD' => 'PARK_TICKET_SET_PLATE',
+        'STATUS' => 0,
+        'RECEIPT_NUMBER' => rand(1000, 9999),
         'ORDER_ID' => $orderId,
-        'STATUS' => 0
+        'METHOD' => 'PARK_TICKET_PAY'
       ];
       break;
 
-    default:
-      $response = [
-        'METHOD' => 'ERROR',
-        'ORDER_ID' => $orderId,
-        'STATUS' => -5,
-        'DESC' => 'Method not supported'
-      ];
+    // Reset command for tests
+    case 'RESET_MOCK':
+      if (file_exists($stateFile))
+        unlink($stateFile);
+      $response = ['STATUS' => 0, 'METHOD' => 'RESET_MOCK'];
       break;
   }
-
-  // Simulate slight network delay if needed
-  // usleep(10000); 
 
   fwrite($conn, json_encode($response) . "\n");
   fclose($conn);
 }
-
-fclose($socket);
