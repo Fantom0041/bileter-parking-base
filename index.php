@@ -566,10 +566,13 @@ if ($ticket) {
       }
       ?>,
       fee_type_raw: <?php echo isset($ticket['api_data']['FEE_TYPE']) ? $ticket['api_data']['FEE_TYPE'] : 'null'; ?>,
+      fee_starts_type_raw: <?php echo isset($ticket['api_data']['FEE_STARTS_TYPE']) ? $ticket['api_data']['FEE_STARTS_TYPE'] : 'null'; ?>,
+      fee_multi_day_raw: <?php echo isset($ticket['api_data']['FEE_MULTI_DAY']) ? $ticket['api_data']['FEE_MULTI_DAY'] : 'null'; ?>,
       is_new: <?php echo (isset($ticket['is_new']) && $ticket['is_new']) ? 'true' : 'false'; ?>,
       fee_paid: <?php echo isset($ticket['api_data']['FEE_PAID']) ? json_encode($ticket['api_data']['FEE_PAID']) : 0; ?>,
       ticket_exist: <?php echo isset($ticket['api_data']['TICKET_EXIST']) ? json_encode($ticket['api_data']['TICKET_EXIST']) : 0; ?>,
-      ticket_barcode: <?php echo isset($ticket['api_data']['BARCODE']) ? json_encode($ticket['api_data']['BARCODE']) : 'null'; ?>
+      ticket_barcode: <?php echo isset($ticket['api_data']['BARCODE']) ? json_encode($ticket['api_data']['BARCODE']) : 'null'; ?>,
+      valid_to: <?php echo isset($ticket['api_data']['VALID_TO']) ? json_encode($ticket['api_data']['VALID_TO']) : 'null'; ?>
     };
 
     // Override local config with API settings for logic
@@ -608,6 +611,29 @@ if ($ticket) {
     const TIME_MODE = API_SETTINGS.time_mode; // daily or hourly
     const DURATION_MODE = API_SETTINGS.duration_mode; // single_day or multi_day
     const DAY_COUNTING = API_SETTINGS.day_counting; // from_entry or from_midnight
+
+    // Core Matrix Configuration
+    const FEE_CONFIG = {
+      FEE_MULTI_DAY: API_SETTINGS.fee_multi_day_raw !== null ? parseInt(API_SETTINGS.fee_multi_day_raw) : (DURATION_MODE === 'multi_day' ? 1 : 0),
+      FEE_TYPE: API_SETTINGS.fee_type_raw !== null && API_SETTINGS.fee_type_raw !== 'null' ? parseInt(API_SETTINGS.fee_type_raw) : (TIME_MODE === 'hourly' ? 1 : 0),
+      FEE_STARTS_TYPE: API_SETTINGS.fee_starts_type_raw !== null ? parseInt(API_SETTINGS.fee_starts_type_raw) : (DAY_COUNTING === 'from_midnight' ? 1 : 0),
+      TICKET_EXIST: parseInt(API_SETTINGS.ticket_exist || 0),
+      VALID_TO: API_SETTINGS.valid_to ? new Date(API_SETTINGS.valid_to) : null
+    };
+
+    /**
+     * Determines the current logic scenario based on the 3-bit matrix.
+     * Returns a string ID: scenario_TYPE_MULTI_STARTS (e.g., scenario_0_0_0)
+     * TYPE: 0=Daily, 1=Hourly
+     * MULTI: 0=Single, 1=Multi
+     * STARTS: 0=From Entry, 1=Midnight
+     */
+    function getModeScenario() {
+      return `scenario_${FEE_CONFIG.FEE_TYPE}_${FEE_CONFIG.FEE_MULTI_DAY}_${FEE_CONFIG.FEE_STARTS_TYPE}`;
+    }
+
+    console.log("FEE_CONFIG:", FEE_CONFIG); // DEBUG
+    console.log("Current Scenario:", getModeScenario()); // DEBUG
   </script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>

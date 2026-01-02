@@ -1243,3 +1243,10 @@ body {
         width: 425px;
     }
 }
+
+.btn-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+    filter: grayscale(100%);
+}

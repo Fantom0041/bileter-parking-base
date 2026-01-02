@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Switch back to exit edit mode
         editMode = 'exit';
 
-        // Show collapsed entry, hide expanded entry
+        // Animate sections logic handled below based on visibility
         const entryCollapsed = document.getElementById('entryCollapsed');
         const entryExpanded = document.getElementById('entryExpanded');
         const exitCollapsed = document.getElementById('exitCollapsed');
@@ -188,53 +188,79 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entryCollapsed) entryCollapsed.style.display = 'flex';
         if (entryExpanded) entryExpanded.style.display = 'none';
 
-    // Check if we're in special mode: daily + single_day (FEE_TYPE=0, FEE_MULTI_DAY=0)
-        // OR if Ticket Exists (ENTRY not editable)
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
-            // Show collapsed Stop, hide expanded Stop
-            if (exitCollapsed) exitCollapsed.style.display = 'block';
-            if (exitExpanded) exitExpanded.style.display = 'none';
+        // Check Scenario for Visibility State
+        const scenario = getModeScenario();
+        
+        let showExpandedExit = true;
+        
+        // Determine if we show collapsed or expanded Exit based on Scenario
+        switch (scenario) {
+            case 'scenario_0_0_0': // Daily, Single, From Entry
+            case 'scenario_0_0_1': // Daily, Single, From Midnight
+                // Fixed STOP time -> Collapsed View
+                showExpandedExit = false;
+                break;
+            default:
+                // Check Max Limit Override
+                if (API_SETTINGS.ticket_exist == '1' && currentDurationMode === 'single_day' && CONFIG.valid_to) {
+                     const validTo = new Date(CONFIG.valid_to);
+                     const entryTime = new Date(ENTRY_TIME);
+                     const endOfDay = new Date(entryTime);
+                     endOfDay.setHours(23, 59, 59, 999);
+                     
+                     if ((endOfDay - validTo) <= 15 * 60 * 1000) {
+                         showExpandedExit = false;
+                     }
+                }
+                break;
+        }
 
-            // Hide edit button in collapsed view, add margin to maintain alignment
-            const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
-            const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
-            if (editExitBtnCollapsed) {
-                editExitBtnCollapsed.style.display = 'none';
-            }
-         
-
-            // Update collapsed exit time display to show end of day
-            const entryTime = new Date(ENTRY_TIME);
-            const endOfDay = new Date(entryTime);
-            endOfDay.setHours(23, 59, 59, 999);
-
-            const year = endOfDay.getFullYear();
-            const month = String(endOfDay.getMonth() + 1).padStart(2, '0');
-            const day = String(endOfDay.getDate()).padStart(2, '0');
-            const hours = String(endOfDay.getHours()).padStart(2, '0');
-            const mins = String(endOfDay.getMinutes()).padStart(2, '0');
-
-            if (exitTimeDisplayCollapsed) {
-                exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
-            }
-        } else {
-             // Logic for TICKET_EXIST=1 check to disable START editing is handled in click handlers (isEntryEditable check)
-             // But we need to ensure the UI reflects it (no pointer cursor) - updateCursors() handles that.
-             
-            // Normal mode: show expanded Stop, hide collapsed Stop
+        if (showExpandedExit) {
+            // Show Expanded
             if (exitExpanded) exitExpanded.style.display = 'block';
             if (exitCollapsed) exitCollapsed.style.display = 'none';
-        }
-
-        // Animate sections that are being shown
-        animateSection(entryCollapsed);
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
-            animateSection(exitCollapsed);
-        } else {
             animateSection(exitExpanded);
+        } else {
+            // Show Collapsed
+            if (exitExpanded) exitExpanded.style.display = 'none';
+            if (exitCollapsed) exitCollapsed.style.display = 'block';
+            animateSection(exitCollapsed);
+
+            // Hide edit button in collapsed view for read-only scenarios
+            const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
+            if (editExitBtnCollapsed) editExitBtnCollapsed.style.display = 'none';
+
+            // RE-CALCULATE Fixed Stop Time for Collapsed View
+            const entryTime = new Date(ENTRY_TIME);
+            let targetDate = new Date(entryTime);
+            
+            if (scenario === 'scenario_0_0_0') {
+                 // Start + 1 Day, Same Time
+                 targetDate.setDate(targetDate.getDate() + 1);
+            } else if (scenario === 'scenario_0_0_1') {
+                 // Start Day, 23:59:59
+                 targetDate.setHours(23, 59, 59, 999);
+            } else if (CONFIG.valid_to && API_SETTINGS.ticket_exist == '1') {
+                 // Fallback for Max Limit
+                 targetDate = new Date(CONFIG.valid_to);
+            }
+
+            const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
+            if (exitTimeDisplayCollapsed) {
+                 const year = targetDate.getFullYear();
+                 const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+                 const day = String(targetDate.getDate()).padStart(2, '0');
+                 const hours = String(targetDate.getHours()).padStart(2, '0');
+                 const mins = String(targetDate.getMinutes()).padStart(2, '0');
+                 exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
+            }
+            // Update global exit time as well
+            currentExitTime = targetDate;
         }
 
-        // Update collapsed entry display with current ENTRY_TIME
+        animateSection(entryCollapsed);
+
+        // Update collapsed entry display
         const entryTimeDisplay = document.getElementById('entryTimeDisplay');
         if (entryTimeDisplay) {
             const entryTime = new Date(ENTRY_TIME);
@@ -248,17 +274,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Reset spinner for exit time
         totalDegrees = 0;
-        currentUnit = 'days';
+        // currentUnit = 'days'; // Don't reset unit blindly, initializeUI handles defaults? 
+        // Better to re-run initializeUI partially or just reset visuals
         updateSpinner(0);
         updateSpinnerLabel();
 
-        // Reactivate exit buttons
-        if (exitDateBtn) exitDateBtn.classList.add('active');
-        if (exitTimeBtn) exitTimeBtn.classList.remove('active');
-
-        // Re-enable spinner for exit editing
-        isEditable = currentDurationMode === 'multi_day' || currentTimeMode === 'hourly';
-        setSliderState(isEditable);
+        // Re-initialize UI state (buttons, units) matches scenario
+        initializeUI();
     }
 
     if (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) {
@@ -500,122 +522,218 @@ document.addEventListener('DOMContentLoaded', () => {
         const entryCollapsed = document.getElementById('entryCollapsed');
         const exitCollapsed = document.getElementById('exitCollapsed');
 
-        // Entry Cursor
-        const isEntryEditable = (typeof IS_EDITABLE_START !== 'undefined' && IS_EDITABLE_START) && 
-                                (API_SETTINGS.fee_type_raw != '0') && 
-                                (API_SETTINGS.ticket_exist != '1');
+        // Entry Cursor: Generally no if ticket exists
+        const isEntryEditable = API_SETTINGS.ticket_exist != '1';
         
         if (entryCollapsed) {
             entryCollapsed.style.cursor = isEntryEditable ? 'pointer' : 'default';
         }
 
-        // Exit Cursor (Collapsed)
-        // Editable if NOT (Daily AND Single Day) AND NOT (Max Limit Reached)
-        let isExitEditable = !(currentTimeMode === 'daily' && currentDurationMode === 'single_day');
+        // Exit Cursor: Collapsed view is generally read-only in this design
+        // because editable modes use expanded view.
+        if (exitCollapsed) {
+            exitCollapsed.style.cursor = 'default';
+        }
+    }
+
+    /**
+     * Helper to get current Scenario Signature
+     * Returns: scenario_TYPE_MULTI_STARTS (e.g. scenario_0_0_0)
+     */
+    function getModeScenario() {
+        const type = currentTimeMode === 'hourly' ? '1' : '0';
+        const multi = currentDurationMode === 'multi_day' ? '1' : '0';
+        const starts = currentDayCounting === 'from_midnight' ? '1' : '0';
+        return `scenario_${type}_${multi}_${starts}`;
+    }
+
+    // Initialize UI based on Matrix Scenarios
+    function initializeUI() {
+        const scenario = getModeScenario();
+        console.log("Initializing UI for Scenario:", scenario, {
+            mode: currentTimeMode, 
+            duration: currentDurationMode, 
+            counting: currentDayCounting
+        });
+
+        // Elements
+        const exitExpanded = document.getElementById('exitExpanded');
+        const exitCollapsed = document.getElementById('exitCollapsed');
+        const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
+        const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
+
+        // Defaults
+        let showSpinner = true;
+        let showExpandedExit = true;
+        let showCollapsedExit = false;
         
-        // Check Max Limit Reached
+        let dateEditable = false;
+        let timeEditable = false;
+
+        // --- SCENARIO LOGIC MATRIX ---
+        switch (scenario) {
+            case 'scenario_0_0_0': // Daily, Single, From Entry
+                // STOP = Start + 1, Start Time.
+                // Editability: DATA: No, TIME: No.
+                showSpinner = false;
+                showExpandedExit = false;
+                showCollapsedExit = true; // Read-only collapsed view
+                // UI: Collapsed Exit
+                break;
+
+            case 'scenario_0_0_1': // Daily, Single, From Midnight
+                // STOP = Start, 23:59:59.
+                // Editability: DATA: No, TIME: No.
+                showSpinner = false;
+                showExpandedExit = false;
+                showCollapsedExit = true;
+                break;
+
+            case 'scenario_1_0_0': // Hourly, Single, From Entry
+            case 'scenario_1_0_1': // Hourly, Single, From Midnight
+                // STOP = Start + Minutes.
+                // Editability: DATA: No (Fixed to Start Day/Relative), TIME: Yes (Spinner).
+                // Logic: Block 23:59 rollover.
+                showSpinner = true;
+                showExpandedExit = true;
+                showCollapsedExit = false;
+                dateEditable = false;
+                timeEditable = true;
+                break;
+
+            case 'scenario_0_1_0': // Daily, Multi, From Entry
+            case 'scenario_0_1_1': // Daily, Multi, From Midnight
+                // STOP = Start + Days.
+                // Editability: DATA: Yes (Spinner Days), TIME: No (Fixed).
+                showSpinner = true;
+                showExpandedExit = true;
+                showCollapsedExit = false;
+                dateEditable = true;
+                timeEditable = false;
+                break;
+
+            case 'scenario_1_1_0': // Hourly, Multi, From Entry
+            case 'scenario_1_1_1': // Hourly, Multi, From Midnight
+                // Fully Editable
+                showSpinner = true;
+                showExpandedExit = true;
+                showCollapsedExit = false;
+                dateEditable = true;
+                timeEditable = true;
+                break;
+
+            default:
+                console.warn("Unknown Scenario:", scenario);
+                showSpinner = true;
+                showExpandedExit = true;
+        }
+
+        // --- RULE 4: VISIBILITY & OVERRIDES ---
+        
+        // Check "Max Limit" Override (User Request)
+        // If Ticket Exists AND Single Day AND ValidTo is close to EndOfDay -> Collapse/Readonly
         if (API_SETTINGS.ticket_exist == '1' && currentDurationMode === 'single_day' && CONFIG.valid_to) {
              const validTo = new Date(CONFIG.valid_to);
              const entryTime = new Date(ENTRY_TIME);
              const endOfDay = new Date(entryTime);
              endOfDay.setHours(23, 59, 59, 999);
              
+             // If validTo is essentially EndOfDay (within 15 mins), treat as ReadOnly
              if ((endOfDay - validTo) <= 15 * 60 * 1000) {
-                 isExitEditable = false;
+                 showSpinner = false;
+                 showExpandedExit = false;
+                 showCollapsedExit = true;
              }
+        }
+
+        // Apply Visibility
+        if (spinnerContainer) {
+            spinnerContainer.style.display = showSpinner ? '' : 'none';
+        }
+
+        if (exitExpanded) exitExpanded.style.display = showExpandedExit ? 'block' : 'none';
+        if (exitCollapsed) exitCollapsed.style.display = showCollapsedExit ? 'block' : 'none';
+
+        // Configure Edit Buttons (Opacity/PointerEvents)
+        if (exitDateBtn) {
+            if (dateEditable) {
+                exitDateBtn.style.opacity = '1';
+                exitDateBtn.style.pointerEvents = 'auto';
+            } else {
+                exitDateBtn.style.opacity = '0.5';
+                exitDateBtn.style.pointerEvents = 'none';
+                exitDateBtn.classList.remove('active');
+            }
+        }
+
+        if (exitTimeBtn) {
+             if (timeEditable) {
+                exitTimeBtn.style.opacity = '1';
+                exitTimeBtn.style.pointerEvents = 'auto';
+            } else {
+                exitTimeBtn.style.opacity = '0.5';
+                exitTimeBtn.style.pointerEvents = 'none';
+                exitTimeBtn.classList.remove('active');
+            }
         }
         
-        if (exitCollapsed) {
-            exitCollapsed.style.cursor = isExitEditable ? 'pointer' : 'default';
-        }
-    }
-
-    // Initialize UI based on modes
-    function initializeUI() {
-        // Get exit sections
-        const exitExpanded = document.getElementById('exitExpanded');
-        const exitCollapsed = document.getElementById('exitCollapsed');
-
-        // Special case: Daily + Single Day (FEE_TYPE=0, FEE_MULTI_DAY=0) = Hide expanded Stop, show collapsed (non-editable)
-        if (currentTimeMode === 'daily' && currentDurationMode === 'single_day') {
-            // Hide expanded exit section
-            if (exitExpanded) exitExpanded.style.display = 'none';
-
-            // Show collapsed exit section (non-editable)
-            if (exitCollapsed) {
-                exitCollapsed.style.display = 'block';
-
-                // Hide edit button in collapsed view, add margin to maintain alignment
-                const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
-                const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
-                if (editExitBtnCollapsed) {
-                    editExitBtnCollapsed.style.display = 'none';
-                }
-               
-                // Calculate and display end of day time
-                const entryTime = new Date(ENTRY_TIME);
-                const endOfDay = new Date(entryTime);
-                endOfDay.setHours(23, 59, 59, 999);
-
-                const year = endOfDay.getFullYear();
-                const month = String(endOfDay.getMonth() + 1).padStart(2, '0');
-                const day = String(endOfDay.getDate()).padStart(2, '0');
-                const hours = String(endOfDay.getHours()).padStart(2, '0');
-                const mins = String(endOfDay.getMinutes()).padStart(2, '0');
-
-                if (exitTimeDisplayCollapsed) {
-                    exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
-                }
+        // Auto-select active button based on editable state
+        if (showExpandedExit) {
+            if (dateEditable && !exitDateBtn.classList.contains('active') && !exitTimeBtn.classList.contains('active')) {
+                exitDateBtn.classList.add('active');
+                currentUnit = 'days';
             }
-        } else {
-             // Check for "Max Limit Reached" condition (USER REQUEST)
-             // IF STOP (initially ValidTo) and VALID_TO are close to the Limit (EndOfDay), collapse.
-             let isMaxLimit = false;
-             if (API_SETTINGS.ticket_exist == '1' && currentDurationMode === 'single_day' && CONFIG.valid_to) {
-                 const validTo = new Date(CONFIG.valid_to);
-                 const entryTime = new Date(ENTRY_TIME);
-                 const endOfDay = new Date(entryTime);
-                 endOfDay.setHours(23, 59, 59, 999);
-                 
-                 // Check if ValidTo is within 15 minutes of EndOfDay
-                 if ((endOfDay - validTo) <= 15 * 60 * 1000) {
-                     isMaxLimit = true;
-                 }
+            if (!dateEditable && timeEditable) {
+                exitTimeBtn.classList.add('active');
+                 currentUnit = 'minutes';
+            }
+        }
+
+        // Setup Collapsed View Content
+        if (showCollapsedExit) {
+             if (editExitBtnCollapsed) editExitBtnCollapsed.style.display = 'none'; // Always hide edit in collapsed for these scenarios
+             
+             // Update display for Collapsed View (Fixed Time)
+             // Calculate the fixed stop time based on scenario logic if not already calculated
+             // For 0_0_0 and 0_0_1, it's essentially fixed.
+             let targetDate = new Date(ENTRY_TIME);
+             if (scenario === 'scenario_0_0_0') {
+                 // Start + 1 Day, Same Time (24h)
+                 targetDate.setDate(targetDate.getDate() + 1);
+             } else if (scenario === 'scenario_0_0_1') {
+                 // Start Day, 23:59:59
+                 targetDate.setHours(23, 59, 59, 999);
+             } else if (scenario === 'scenario_0_0_0') {
+                  // Fallback for others showing collapsed (e.g. Max Limit) comes from currentExitTime or VALID_TO
+                  if (CONFIG.valid_to) targetDate = new Date(CONFIG.valid_to);
              }
 
-             if (isMaxLimit) {
-                // Treat as "Daily + Single Day" -> Collapsed and Non-Editable
-                 // Hide expanded exit section
-                if (exitExpanded) exitExpanded.style.display = 'none';
-
-                // Show collapsed exit section
-                if (exitCollapsed) {
-                    exitCollapsed.style.display = 'block';
-
-                    // Hide edit button
-                     const editExitBtnCollapsed = document.getElementById('editExitBtnCollapsed');
-                    if (editExitBtnCollapsed) {
-                        editExitBtnCollapsed.style.display = 'none';
-                    }
-                    
-                    // Show ValidTo (or EndOfDay) in collapsed display
-                    const exitTimeDisplayCollapsed = document.getElementById('exitTimeDisplayCollapsed');
-                    if (exitTimeDisplayCollapsed && CONFIG.valid_to) {
-                         // Format valid_to for display
-                         const vt = new Date(CONFIG.valid_to);
-                         const year = vt.getFullYear();
-                         const month = String(vt.getMonth() + 1).padStart(2, '0');
-                         const day = String(vt.getDate()).padStart(2, '0');
-                         const hours = String(vt.getHours()).padStart(2, '0');
-                         const mins = String(vt.getMinutes()).padStart(2, '0');
-                         exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
-                    }
-                }
-             } else {
-                // Normal mode: Show expanded exit section, hide collapsed
-                if (exitExpanded) exitExpanded.style.display = 'block';
-                if (exitCollapsed) exitCollapsed.style.display = 'none';
+             const year = targetDate.getFullYear();
+             const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+             const day = String(targetDate.getDate()).padStart(2, '0');
+             const hours = String(targetDate.getHours()).padStart(2, '0');
+             const mins = String(targetDate.getMinutes()).padStart(2, '0');
+             
+             if (exitTimeDisplayCollapsed) {
+                 exitTimeDisplayCollapsed.textContent = `${year}-${month}-${day} ${hours}:${mins}`;
              }
+        }
+
+        // START Date Editability (Rule: "Read Only" if ticket exists or scenario dictates)
+        // Check `newTicketForm` is handled separately. Here we check `editEntryBtn`.
+        // If TICKET_EXIST=1, Start is Read-Only.
+        if (editEntryBtn) {
+            // "nie edytujemy" for practically all scenarios where TICKET_EXIST is 1
+            if (API_SETTINGS.ticket_exist == '1') {
+                 editEntryBtn.style.display = 'none';
+            } else {
+                 // New Ticket / Pre-booking: Allow edit?
+                 // Prompt says: "START DATA / START GODZINA: nie edytujemy" for most scenarios in the table.
+                 // But for "New Ticket", we probably want to allow it. 
+                 // Assuming logic: If New Ticket, check scenarios?
+                 // Let's stick to: If TICKET_EXIST=0, show button.
+                 editEntryBtn.style.display = 'flex';
+            }
         }
 
         // --- NEW RESTRICTION: Disable START DATE for Single Day Mode ---
@@ -627,115 +745,20 @@ document.addEventListener('DOMContentLoaded', () => {
                  entryDateBtn.style.pointerEvents = 'none';
              }
              if (entryTimeBtn) {
-                  // Ensure Time is active if Date is disabled
                   entryTimeBtn.classList.add('active');
-                  // We might need to ensure currentUnit is minutes if we force this?
-                  // `entryTimeBtn.click()` handles logic, but let's not trigger events if possible.
-                  // Just set visual state.
              }
         } else {
-             // Re-enable if switching modes (though Single Day button in config might restrict switching?)
-             // Better safe to re-enable.
-             if (isEditable && entryDateBtn) { // Simple check, or just check 'active' status?
-                  // Only re-enable if it's not restricted by other logic (e.g. Ticket Exist)
+             if (isEditable && entryDateBtn) {
                   if (!API_SETTINGS.ticket_exist || API_SETTINGS.ticket_exist == '0') {
                         entryDateBtn.style.opacity = '1';
                         entryDateBtn.style.pointerEvents = 'auto';
                   }
              }
         }
-
-        // Daily Mode: Disable Time selection
-        if (currentTimeMode === 'daily') {
-            // Visual indication that Time is locked/not needed
-            if (exitTimeBtn) {
-                exitTimeBtn.classList.remove('active');
-                exitTimeBtn.style.opacity = '0.5';
-                exitTimeBtn.style.pointerEvents = 'none';
-            }
-            // Logic addition: If Daily + Single Day, disable Date too?
-            // "jak mamy type fee dzienna i fee multi 0 oznacza ze nie mozemy nic zmieniac"
-            if (currentDurationMode === 'single_day') {
-                 if (exitDateBtn) {
-                    exitDateBtn.classList.remove('active');
-                    exitDateBtn.style.opacity = '0.5';
-                    exitDateBtn.style.pointerEvents = 'none';
-                 }
-            } else {
-                 if (exitDateBtn) {
-                    exitDateBtn.classList.add('active'); // Force Date active for Daily+Multi
-                 }
-            }
-        } else {
-            // Reset Time button state
-            if (exitTimeBtn) {
-                exitTimeBtn.style.opacity = '1';
-                exitTimeBtn.style.pointerEvents = 'auto';
-            }
-        }
-
-        // Hourly + Single Day Mode:
-        if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
-             // For Existing Tickets, we should NOT allow switching to Multi-Day?
-             // User Request: "if not multiday ... we can set only the end time".
-             // So if TICKET_EXIST=1, disable Date button.
-             // If TICKET_EXIST is false (New Ticket), allow switching.
-             
-             if (exitDateBtn) {
-                exitDateBtn.classList.remove('active');
-                
-                // RESTRICTION: In Single Day mode, Date cannot be changed.
-                // It is dependent on Start Date (same day or relative).
-                // User must use "Duration" buttons to switch to Multi-Day.
-                exitDateBtn.style.opacity = '0.5';
-                exitDateBtn.style.pointerEvents = 'none';
-             }
-
-            if (exitTimeBtn) {
-                exitTimeBtn.classList.add('active'); // Force Time active initially
-            }
-            // Fix: Force logic unit to minutes to match UI
-            currentUnit = 'minutes';
-        } else if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
-            // Ensure Date button is clickable again if we switched back
-            if (exitDateBtn) {
-                exitDateBtn.style.opacity = '1';
-                exitDateBtn.style.pointerEvents = 'auto';
-            }
-        }
-
-        // Fee Multi (Multi Day) Constraint: Disable Date, Allow Time
-        // REFACTOR: Removed "fee multi nie moge zmienic daty" restriction to allow Hourly + Multi Day editing.
-        // We now rely on 'currentTimeMode === daily' to disable time, and 'duration_mode === single_day' to disable date.
-        // If it's Hourly + Multi Day, both should be enabled.
-
-
-
-        // Enable/disable spinner
+        
+        // Final Spinner State
+        isEditable = showSpinner;
         setSliderState(isEditable);
-
-        // Hide spinner completely in daily + single_day mode (FEE_TYPE=0, FEE_MULTI_DAY=0) - time is fixed
-        // OR if Max Limit Reached
-        let isMaxLimitForSpinner = false;
-        if (API_SETTINGS.ticket_exist == '1' && currentDurationMode === 'single_day' && CONFIG.valid_to) {
-             const validTo = new Date(CONFIG.valid_to);
-             const entryTime = new Date(ENTRY_TIME);
-             const endOfDay = new Date(entryTime);
-             endOfDay.setHours(23, 59, 59, 999);
-             if ((endOfDay - validTo) <= 15 * 60 * 1000) {
-                 isMaxLimitForSpinner = true;
-             }
-        }
-
-        if ((currentTimeMode === 'daily' && currentDurationMode === 'single_day') || isMaxLimitForSpinner) {
-            if (spinnerContainer) {
-                spinnerContainer.style.display = 'none';
-            }
-        } else {
-            if (spinnerContainer) {
-                spinnerContainer.style.display = ''; // Reset to original CSS value
-            }
-        }
 
         updateSpinner(totalDegrees);
         updateSpinnerLabel();
@@ -825,6 +848,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         updateCursors();
+
+        // DEBUG: UI State Logging
+        console.group("UI Editability Debug");
+        console.log("Scenario:", scenario, "Config Matrix:", {
+             time: currentTimeMode,
+             duration: currentDurationMode,
+             counting: currentDayCounting,
+             fee_multi: FEE_CONFIG.FEE_MULTI_DAY,
+             fee_type: FEE_CONFIG.FEE_TYPE,
+             fee_starts: FEE_CONFIG.FEE_STARTS_TYPE
+        });
+        console.log("Editability Decisions:", {
+            showSpinner,
+            showExpandedExit,
+            showCollapsedExit,
+            dateEditable,
+            timeEditable,
+            isMaxLimitOverride: typeof isMaxLimitForSpinner !== 'undefined' ? isMaxLimitForSpinner : 'unknown' 
+        });
+        console.log("Control States:", {
+            exitDateBtn: exitDateBtn ? { opacity: exitDateBtn.style.opacity, pointerEvents: exitDateBtn.style.pointerEvents, active: exitDateBtn.classList.contains('active') } : 'null',
+            exitTimeBtn: exitTimeBtn ? { opacity: exitTimeBtn.style.opacity, pointerEvents: exitTimeBtn.style.pointerEvents, active: exitTimeBtn.classList.contains('active') } : 'null',
+            spinnerVisible: spinnerContainer ? spinnerContainer.style.display !== 'none' : 'unknown'
+        });
+        console.groupEnd();
     }
 
     // Exit time buttons - switch between editing date or time
@@ -1086,106 +1134,114 @@ document.addEventListener('DOMContentLoaded', () => {
             exitBaseTime = new Date(CONFIG.valid_to);
         }
 
-        // 3.2: daily / multi_day - scanning adds days
-        if (currentTimeMode === 'daily') {
-            // 360 deg = 7 days (as before) or just 1 day per 51 deg?
-            // Let's keep density: 360 deg = 7 days
+        const scenario = getModeScenario();
+        
+        // Scenario-based Calculations
+        // Note: Scenarios 0_0_0 and 0_0_1 are non-editable (spinner hidden), so we shouldn't be here optimally,
+        // but if we are, we handle them or they fall through.
+
+        if (scenario === 'scenario_0_1_0' || scenario === 'scenario_0_1_1') {
+            // Daily, Multi (0 or 1 Start)
+            // Editability: Days Only (enforced by initializeUI)
+            // 360 deg = 7 days
             const daysFromAngle = Math.round((totalDegrees / 360) * 7);
             selectedDays = daysFromAngle;
 
-            // Oblicz datę wyjazdu
+            // Calculate Exit Date
             const exitDate = new Date(exitBaseTime.getTime() + selectedDays * 24 * 60 * 60 * 1000);
 
-            // For multi_day + from_entry: keep the same hour as entry time (24h from entry)
-            // For other modes: force 23:59:59
-            if (currentDurationMode === 'multi_day' && currentDayCounting === 'from_entry') {
-                // Keep the same hour as entry time (already set by adding days * 24h)
-                // No need to change hours
+            // Handle Time Component
+            if (scenario === 'scenario_0_1_0') {
+                 // From Entry: Keep same hour/min as Entry
+                 const et = new Date(ENTRY_TIME);
+                 exitDate.setHours(et.getHours(), et.getMinutes(), 0, 0);
             } else {
-                // Force 23:59:59 for other modes
-                exitDate.setHours(23, 59, 59, 999);
+                 // From Midnight: Fix to 23:59:59
+                 exitDate.setHours(23, 59, 59, 999);
             }
 
+            // Update Validation Check: Don't allow less than Entry/ValidTo
+            // (handled generically or implicit by days >= 0)
+            
+            // Format Display
             const day = String(exitDate.getDate()).padStart(2, '0');
             const month = String(exitDate.getMonth() + 1).padStart(2, '0');
             const year = exitDate.getFullYear();
-
-            // Wyświetl pełną datę
             spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
 
-            // Update exit time display
             updateExitTimeDisplay(exitDate);
-
-            // Calculate duration from entry to this EOD
             const diffMs = exitDate - entryTime;
-            totalMinutes = Math.floor(diffMs / 60000);
-            if (totalMinutes < 0) totalMinutes = 0;
-
-            addedMinutes = totalMinutes;
+            addedMinutes = Math.max(0, Math.floor(diffMs / 60000));
         }
-        // 3.3: hourly / single_day
-        else if (currentTimeMode === 'hourly' && currentDurationMode === 'single_day') {
+        else if (scenario === 'scenario_1_0_0' || scenario === 'scenario_1_0_1') {
+            // Hourly, Single (0 or 1 Start)
+            // Editability: Minutes Only (enforced by initializeUI)
             // 1 full rotation = 60 minutes
             const minutesFromAngle = Math.round((totalDegrees / 360) * 60);
             selectedMinutes = minutesFromAngle;
 
-            // Oblicz czas wyjazdu
+            // Calculate Exit Time
             const exitTime = new Date(exitBaseTime.getTime() + selectedMinutes * 60000);
 
+            // Limit Check: End of Day 23:59:59 (Same Day as Base)
+            const baseDay = new Date(exitBaseTime);
+            // If base is 23:50, we can only go 9 mins.
+            // Check if date changed
+            if (exitTime.getDate() !== baseDay.getDate()) {
+                 // Clamped to End of Day
+                 // We rely on validation block below to handle visual clamping,
+                 // OR we clamp here to ensure 'exitTime' passed to display is correct.
+                 // Let's clamp here for display consistency during drag.
+                 const endOfDay = new Date(baseDay);
+                 endOfDay.setHours(23, 59, 59, 999);
+                 
+                 // If we went PAST end of day (next day)
+                 if (exitTime > endOfDay) {
+                      exitTime.setTime(endOfDay.getTime());
+                 }
+            }
+            
             const hours = String(exitTime.getHours()).padStart(2, '0');
             const mins = String(exitTime.getMinutes()).padStart(2, '0');
-            console.log('new exit time in spinner ', exitTime);
-            // Wyświetl godzinę
             spinnerValue.innerHTML = `${hours}:${mins}`;
 
-            // Update exit time display
             updateExitTimeDisplay(exitTime);
-
-            // Calculate total duration from entry time
             const diffMs = exitTime - entryTime;
-            totalMinutes = Math.floor(diffMs / 60000);
-            addedMinutes = totalMinutes;
+            addedMinutes = Math.max(0, Math.floor(diffMs / 60000));
         }
-        // 3.4: hourly / multi_day
-        else if (currentTimeMode === 'hourly' && currentDurationMode === 'multi_day') {
-            if (currentUnit === 'days') {
-                // Days selection
+        else if (scenario === 'scenario_1_1_0' || scenario === 'scenario_1_1_1') {
+             // Hourly, Multi (0 or 1 Start)
+             // Fully Editable
+             if (currentUnit === 'days') {
                 const daysFromAngle = Math.floor((totalDegrees / 360) * 7);
                 selectedDays = daysFromAngle;
-
-                // Oblicz datę wyjazdu
+                
                 const exitDate = new Date(exitBaseTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
                 const day = String(exitDate.getDate()).padStart(2, '0');
                 const month = String(exitDate.getMonth() + 1).padStart(2, '0');
                 const year = exitDate.getFullYear();
-
-                // Wyświetl datę
                 spinnerValue.innerHTML = `<span style="font-size: 24px;">${day}.${month}.${year}</span>`;
-
-                // Update exit time display
+                
                 updateExitTimeDisplay(exitDate);
-            } else {
-                // Minutes selection (adding to days)
-                // 1 rotation = 60 minutes
+             } else {
                 const minutesFromAngle = Math.round((totalDegrees / 360) * 60);
                 selectedMinutes = minutesFromAngle;
-
-                // Oblicz czas wyjazdu
+                
                 const exitTime = new Date(exitBaseTime.getTime() + (selectedDays * 1440 + selectedMinutes) * 60000);
                 const hours = String(exitTime.getHours()).padStart(2, '0');
                 const mins = String(exitTime.getMinutes()).padStart(2, '0');
-
-                // Wyświetl godzinę
                 spinnerValue.innerHTML = `${hours}:${mins}`;
-
-                // Update exit time display
+                
                 updateExitTimeDisplay(exitTime);
-            }
-
-            // Calculate total duration from entry time
-            const diffMs = exitTime - entryTime;
-            totalMinutes = Math.floor(diffMs / 60000);
-            addedMinutes = totalMinutes;
+             }
+             
+             // Recalculate addedMinutes...
+             // Note: updateExitTimeDisplay updates 'currentExitTime'.
+             const diffMs = currentExitTime - entryTime;
+             addedMinutes = Math.max(0, Math.floor(diffMs / 60000));
+        } else {
+             // Default Fallback (shouldn't happen for active spinner)
+             // console.warn("Spinner active in unknown scenario");
         }
 
         // --- VALIDATION: Check against VALID_TO ---
