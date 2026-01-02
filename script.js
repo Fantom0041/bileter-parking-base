@@ -1609,6 +1609,27 @@ document.addEventListener('DOMContentLoaded', () => {
                          feePaidValue.innerText = parseFloat(data.fee_paid).toFixed(2);
                      }
                  }
+
+                 // Update Valid To (Opłacone do)
+                 if (data.valid_to) {
+                     const paymentInfoExitValue = document.getElementById('paymentInfoExitValue');
+                     const paymentInfoExitLabel = document.getElementById('paymentInfoExitLabel');
+                     
+                     if (paymentInfoExitValue) {
+                         paymentInfoExitValue.textContent = data.valid_to;
+                         paymentInfoExitValue.style.opacity = '1';
+                     }
+                     if (paymentInfoExitLabel) {
+                         paymentInfoExitLabel.style.opacity = '1';
+                     }
+                     
+                     // Also update global CONFIG.valid_to to ensure client-side logic (like spinner limits) uses the fresh value
+                     CONFIG.valid_to = data.valid_to;
+                     
+                     // If needed, we could trigger a re-validation of the spinner limits here, 
+                     // but simply updating the config might be enough for the NEXT interaction.
+                     // To fix immediate "static" issues, ensuring the config is fresh is key.
+                 }
                      
                      // Also check if we should populate "Wyjazd do" if it was empty?
                      // data.duration_minutes is calculated, but API might have authoritative date.
@@ -1665,7 +1686,7 @@ document.addEventListener('DOMContentLoaded', () => {
              payButton.disabled = true; // Still disabled as there's nothing to pay
         } else {
              payButton.textContent = "Do zapłaty: 0,00 " + CONFIG.currency;
-             payButton.classList.remove('btn-glass');
+             payButton.classList.add('btn-glass');
              payButton.disabled = true;
         }
     } else {

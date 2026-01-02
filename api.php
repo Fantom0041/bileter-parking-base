@@ -217,7 +217,8 @@ if ($action === 'calculate_fee') {
             'currency' => $config['settings']['currency'],
             'duration_minutes' => $duration_minutes,
             'ticket_exist' => (int) ($ticketData['TICKET_EXIST'] ?? 0),
-            'fee_paid' => $paidFee / 100.0 // Return paid amount in standard units
+            'fee_paid' => $paidFee / 100.0, // Return paid amount in standard units
+            'valid_to' => $ticketData['VALID_TO'] ?? null // Return Valid To date
         ]);
     } catch (Exception $e) {
         error_log("Error calculating fee: " . $e->getMessage());

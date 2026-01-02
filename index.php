@@ -681,7 +681,7 @@ if ($ticket) {
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>
   <script src="script.js"></script>
-
+<!-- <script type="module" src="public/js/main.js"></script> -->
   <!-- SVG filter (put once per page, e.g. before </body>) -->
   <svg width="0" height="0" style="position: absolute;">
     <filter id="lg-dist">
