@@ -1049,21 +1049,31 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate potential total value
         let potentialTotal = potentialTurns * 360 + newValue;
 
-        // Prevent going below 0 - force slider back to 0 position
-        if (potentialTotal < 0) {
-            // Reset to 0
-            currentTurns = 0;
-            totalDegrees = 0;
-            lastSliderValue = 0;
+        // --- FIX: Allow negative values for Multi-Day Hourly mode (going back in time relative to day start) ---
+        let minLimit = 0;
+        const currentScenario = getModeScenario();
+        // Allow negative values if we are in Multi-Day Hourly mode and editing Minutes
+        // The limit is the start of the session relative to the current selected day
+        if ((currentScenario === 'scenario_1_1_0' || currentScenario === 'scenario_1_1_1') && currentUnit === 'minutes') {
+            // Limit is -(selectedDays * 24 hours * 60 minutes) converted to degrees
+            // 360 degrees = 60 minutes.
+            minLimit = -(selectedDays * 24 * 360);
+        }
 
-            // Force slider widget to position 0
+        // Prevent going below minLimit
+        if (potentialTotal < minLimit) {
+            // Clamp to minLimit
+            currentTurns = Math.floor(minLimit / 360);
+            lastSliderValue = (minLimit % 360 + 360) % 360;
+            totalDegrees = minLimit;
+
             const slider = $("#slider").data("roundSlider");
             if (slider) {
-                slider.setValue(0);
+                slider.setValue(lastSliderValue);
             }
 
-            // Update display to show starting value
-            updateSpinner(0, false);
+            // Update display to show limited value
+            updateSpinner(totalDegrees, false);
             return;
         }
 
@@ -1098,13 +1108,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 // integer part of degrees / 360
                 // We need to map visualDegrees (which might be huge) back to 0-360 + turns
                 const val = visualDegrees % 360;
+                // Normalize negative value for slider handle (0-360)
+                const normalizedVal = (val + 360) % 360;
+
                 const turns = Math.floor(visualDegrees / 360);
 
                 // Avoid firing change/drag events
                 currentTurns = turns;
-                lastSliderValue = val;
+                lastSliderValue = normalizedVal;
 
-                slider.setValue(val);
+                slider.setValue(normalizedVal);
             }
         }
 
