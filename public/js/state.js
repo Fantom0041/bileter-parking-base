@@ -56,7 +56,7 @@ class AppState {
         const type = this.currentTimeMode === 'hourly' ? '1' : '0';
         const multi = this.currentDurationMode === 'multi_day' ? '1' : '0';
         const starts = this.currentDayCounting === 'from_midnight' ? '1' : '0';
-        return `scenario_${type}_${multi}_${starts}`;
+        return `scenario_${multi}_${type}_${starts}`;
     }
 }
 

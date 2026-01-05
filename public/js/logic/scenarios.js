@@ -28,24 +28,24 @@ export function getScenarioConfig(scenarioSignature) {
             config.showCollapsedExit = true;
             break;
 
-        case 'scenario_1_0_0': // Hourly, Single, From Entry
-        case 'scenario_1_0_1': // Hourly, Single, From Midnight
-            // STOP = Start + Minutes.
-            config.showSpinner = true;
-            config.showExpandedExit = true;
-            config.showCollapsedExit = false;
-            config.dateEditable = false;
-            config.timeEditable = true;
-            break;
-
-        case 'scenario_0_1_0': // Daily, Multi, From Entry
-        case 'scenario_0_1_1': // Daily, Multi, From Midnight
+        case 'scenario_1_0_0': // Daily, Multi, From Entry (ID: 1_0_0)
+        case 'scenario_1_0_1': // Daily, Multi, From Midnight (ID: 1_0_1)
             // STOP = Start + Days.
             config.showSpinner = true;
             config.showExpandedExit = true;
             config.showCollapsedExit = false;
             config.dateEditable = true; // Days spinner
             config.timeEditable = false;
+            break;
+
+        case 'scenario_0_1_0': // Hourly, Single, From Entry (ID: 0_1_0)
+        case 'scenario_0_1_1': // Hourly, Single, From Midnight (ID: 0_1_1)
+            // STOP = Start + Minutes.
+            config.showSpinner = true;
+            config.showExpandedExit = true;
+            config.showCollapsedExit = false;
+            config.dateEditable = false;
+            config.timeEditable = true;
             break;
 
         case 'scenario_1_1_0': // Hourly, Multi, From Entry

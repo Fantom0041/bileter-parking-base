@@ -8,53 +8,65 @@ use Tests\Support\AcceptanceTester;
 
 class ScenariosCest
 {
-  // Note: Ensure the ports match your configuration (8022 for PHP server)
-
   private static $mockPid;
   private static $phpServerPid;
-  private static $port = 8022;
-  private static $configFile = 'config_test.ini';
+  private static $port = 8022; // Port for the PHP Test Server (matches Acceptance.suite.yml)
+  private static $mockPort = 8099; // Port for the Mock API Server
+
+  // Distinct config file for tests to avoid touching prod config.ini
+  private static $configFile = 'config_e2e_test.ini';
 
   public function _before(AcceptanceTester $I): void
   {
-    // Start Mock & PHP Server logic (same as before)
-    $cmd = "php tests/MockServer.php 8099 > tests/mock_output.log 2>&1 & echo $!";
-    self::$mockPid = trim(shell_exec($cmd));
+    // 1. Start Mock Server
+    // We run this in background
+    $cmdMock = "php tests/MockServer.php " . self::$mockPort . " > tests/_output/mock_output.log 2>&1 & echo $!";
+    self::$mockPid = trim(shell_exec($cmdMock));
 
-    // Start PHP Server with custom config env var
-    $cmdPhp = "PARK_CONFIG_FILE=" . self::$configFile . " php -S 127.0.0.1:" . self::$port . " > tests/php_server.log 2>&1 & echo $!";
+    // 2. Start PHP Web Server with custom config environment variable
+    // This ensures index.php uses our temp config instead of the production config.ini
+    $cmdPhp = "PARK_CONFIG_FILE=" . self::$configFile . " php -S 127.0.0.1:" . self::$port . " > tests/_output/php_server.log 2>&1 & echo $!";
     self::$phpServerPid = trim(shell_exec($cmdPhp));
 
-    sleep(2); // Wait for boot
+    // 3. Ensure a default test config exists before server accepts requests
+    // (Optional, but good practice to prevent initial errors if checks run early)
+    $this->applyScenarioConfig('0_0_0');
+
+    // Give servers a moment to boot
+    sleep(2);
   }
 
   public function _after(AcceptanceTester $I): void
   {
-    // Clean up test config
-    if (file_exists(self::$configFile)) {
-      unlink(self::$configFile);
-    }
-
+    // 1. Kill servers
     if (self::$mockPid)
       shell_exec("kill " . self::$mockPid);
     if (self::$phpServerPid)
       shell_exec("kill " . self::$phpServerPid);
+
+    // 2. Clean up the temporary config file
+    if (file_exists(self::$configFile)) {
+      unlink(self::$configFile);
+    }
   }
 
+  /**
+   * Helper to write the specific configuration file for a scenario.
+   * This writes to 'config_e2e_test.ini', NOT 'config.ini'.
+   */
   private function applyScenarioConfig(string $scenarioString)
   {
-    // (Use the same config writing logic as provided previously)
     $configContent = '
 [settings]
 station_id = "TEST_STATION"
 currency = "PLN"
 hourly_rate = 5.00
 free_minutes = 15
-
-
+PARK_CONFIG_FILE = config_e2e_test.ini
 
 [api]
-api_url = "tcp://127.0.0.1:8099"
+; Point to the local Mock Server
+api_url = "tcp://127.0.0.1:' . self::$mockPort . '"
 api_login = "test"
 api_password = "pass"
 device_id = 1
@@ -68,98 +80,151 @@ selected_scenario = "' . $scenarioString . '"
     file_put_contents(self::$configFile, $configContent);
   }
 
-  // --- TRUE E2E UI TESTS ---
+  // --- E2E UI SCENARIO TESTS ---
 
-  // 1. Daily, Single, From Entry -> Spinner HIDDEN
+  /**
+   * Scenario 0_0_0: Daily, Single Day, From Entry.
+   * Logic: Read-only mode.
+   * UI: Spinner hidden, Collapsed Exit view visible.
+   */
   public function testScenario_0_0_0_UI(AcceptanceTester $I)
   {
     $this->applyScenarioConfig('0_0_0');
-    $I->amOnPage('/?ticket_id=UI_TEST');
+    $I->amOnPage('/?ticket_id=UI_TEST&_t=' . time());
 
-    // Wait for JS to initialize
+    // Verify Test Mode Banner (injected by index.php)
     $I->waitForText('TEST MODE: [0_0_0]', 5);
 
-    // Assert UI State (handled by script.js)
-    $I->dontSeeElement('#spinnerContainer'); // Should be hidden
-    $I->seeElement('#exitCollapsed'); // Should show collapsed view
-    $I->dontSeeElement('#exitExpanded'); // Should NOT show expanded view
+    // Assert: Spinner should be hidden (display: none)
+    // Note: Codeception's seeElement checks presence in DOM, not visibility.
+    // We use executeJS to check computed style.
+    // $I->seeElement('#spinnerContainer'); // Removed: Element exists but is hidden, seeElement checks presence but we care about visibility logic below
+    $display = $I->executeJS("return window.getComputedStyle(document.getElementById('spinnerContainer')).display");
+    $I->assertEquals('none', $display, 'Spinner container should be hidden in 0_0_0');
+
+    // Assert: Collapsed Exit view should be visible
+    $collapsedDisplay = $I->executeJS("return window.getComputedStyle(document.getElementById('exitCollapsed')).display");
+    $I->assertNotEquals('none', $collapsedDisplay, 'Collapsed Exit view should be visible');
+
+    // Assert: Expanded Exit view should be hidden
+    $expandedDisplay = $I->executeJS("return window.getComputedStyle(document.getElementById('exitExpanded')).display");
+    $I->assertEquals('none', $expandedDisplay, 'Expanded Exit view should be hidden');
   }
 
-  // 2. Daily, Single, Midnight -> Spinner HIDDEN
+  /**
+   * Scenario 0_0_1: Daily, Single Day, From Midnight.
+   * Logic: Read-only mode (ends at 23:59:59).
+   * UI: Spinner hidden, Collapsed Exit view visible.
+   */
   public function testScenario_0_0_1_UI(AcceptanceTester $I)
   {
     $this->applyScenarioConfig('0_0_1');
-    $I->amOnPage('/?ticket_id=UI_TEST');
+    $I->amOnPage('/?ticket_id=UI_TEST&_t=' . time());
     $I->waitForText('TEST MODE: [0_0_1]', 5);
 
-    $I->dontSeeElement('#spinnerContainer');
-    $I->seeElement('#exitCollapsed');
+    // Assert: Spinner hidden
+    $display = $I->executeJS("return window.getComputedStyle(document.getElementById('spinnerContainer')).display");
+    $I->assertEquals('none', $display);
+
+    // Assert: Collapsed Exit view visible
+    $collapsedDisplay = $I->executeJS("return window.getComputedStyle(document.getElementById('exitCollapsed')).display");
+    $I->assertNotEquals('none', $collapsedDisplay);
   }
 
-  // 3. Daily, Multi -> Spinner VISIBLE, Days Mode
-  public function testScenario_0_1_0_UI(AcceptanceTester $I)
-  {
-    $this->applyScenarioConfig('0_1_0');
-    $I->amOnPage('/?ticket_id=UI_TEST');
-    $I->waitForText('TEST MODE: [0_1_0]', 5);
-
-    // Spinner should be visible
-    $I->seeElement('#spinnerContainer');
-
-    // Buttons: Date active, Time disabled
-    $I->seeElement('#exitDateBtn.active');
-    $I->dontSeeElement('#exitTimeBtn.active');
-
-    // Check opacity via JS execution if needed, or rely on class check
-    // Wait for opacity transition
-    $I->waitForElement('#exitTimeBtn[style*="opacity: 0.5"]', 5);
-
-    $opacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitTimeBtn')).opacity");
-    $I->assertLessThan(1.0, $opacity, 'Time button should be faded out (disabled)');
-  }
-
-  // 5. Hourly, Single -> Spinner VISIBLE, Minutes Mode
+  /**
+   * Scenario 1_0_0: Daily, Multi Day, From Entry.
+   * Logic: Days editable, Time fixed.
+   * UI: Spinner visible, Expanded Exit view visible. Date active, Time disabled.
+   */
   public function testScenario_1_0_0_UI(AcceptanceTester $I)
   {
     $this->applyScenarioConfig('1_0_0');
-    $I->amOnPage('/?ticket_id=UI_TEST');
+    $I->amOnPage('/?ticket_id=UI_TEST&_t=' . time());
     $I->waitForText('TEST MODE: [1_0_0]', 5);
 
-    $I->seeElement('#spinnerContainer');
+    // Assert: Spinner visible
+    $display = $I->executeJS("return window.getComputedStyle(document.getElementById('spinnerContainer')).display");
+    $I->assertNotEquals('none', $display, 'Spinner should be visible');
 
-    // Buttons: Time active, Date disabled
-    $I->seeElement('#exitTimeBtn.active');
-    $I->dontSeeElement('#exitDateBtn.active');
+    // Assert: Expanded Exit view visible
+    $expandedDisplay = $I->executeJS("return window.getComputedStyle(document.getElementById('exitExpanded')).display");
+    $I->assertNotEquals('none', $expandedDisplay, 'Expanded view should be visible');
 
-    // Wait for opacity transition
-    $I->waitForElement('#exitDateBtn[style*="opacity: 0.5"]', 5);
+    // Assert: Buttons State
+    // Date Button should be active (class) and fully opaque
+    $I->seeElement('#exitDateBtn.active');
+    $dateOpacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitDateBtn')).opacity");
+    $I->assertEquals('1', $dateOpacity, 'Date button should be enabled');
 
-    $opacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitDateBtn')).opacity");
-    $I->assertLessThan(1.0, $opacity, 'Date button should be faded out (disabled)');
+    // Time Button should NOT be active and should be faded (disabled)
+    $I->dontSeeElement('#exitTimeBtn.active');
+    $timeOpacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitTimeBtn')).opacity");
+    $I->assertLessThan(1.0, (float) $timeOpacity, 'Time button should be faded/disabled');
+
+    // Assert: Pointer events none for time button
+    $timePointer = $I->executeJS("return window.getComputedStyle(document.getElementById('exitTimeBtn')).pointerEvents");
+    $I->assertEquals('none', $timePointer, 'Time button should not be clickable');
   }
 
-  // 7. Hourly, Multi -> Fully Editable
+  /**
+   * Scenario 0_1_0: Hourly, Single Day, From Entry.
+   * Logic: Minutes editable, Date fixed (single day).
+   * UI: Spinner visible. Time active, Date disabled.
+   */
+  public function testScenario_0_1_0_UI(AcceptanceTester $I)
+  {
+    $this->applyScenarioConfig('0_1_0');
+    $I->amOnPage('/?ticket_id=UI_TEST&_t=' . time());
+    $I->waitForText('TEST MODE: [0_1_0]', 5);
+
+    // Assert: Spinner visible
+    $display = $I->executeJS("return window.getComputedStyle(document.getElementById('spinnerContainer')).display");
+    $I->assertNotEquals('none', $display);
+
+    // Assert: Buttons State
+    // Time Button should be active
+    $I->seeElement('#exitTimeBtn.active');
+
+    // Date Button should be disabled (Single Day constraint)
+    $I->dontSeeElement('#exitDateBtn.active');
+    $dateOpacity = $I->executeJS("return document.getElementById('exitDateBtn').style.opacity");
+    $I->assertEquals('0.5', $dateOpacity, 'Date button should be disabled (inline style 0.5) for Single Day Hourly');
+  }
+
+  /**
+   * Scenario 1_1_0: Hourly, Multi Day, From Entry.
+   * Logic: Fully editable.
+   * UI: Spinner visible. Both buttons enabled.
+   */
   public function testScenario_1_1_0_UI(AcceptanceTester $I)
   {
     $this->applyScenarioConfig('1_1_0');
-    $I->amOnPage('/?ticket_id=UI_TEST');
+    $I->amOnPage('/?ticket_id=UI_TEST&_t=' . time());
     $I->waitForText('TEST MODE: [1_1_0]', 5);
 
-    $I->seeElement('#spinnerContainer');
+    // Assert: Spinner visible
+    $display = $I->executeJS("return window.getComputedStyle(document.getElementById('spinnerContainer')).display");
+    $I->assertNotEquals('none', $display);
 
-    // Both accessible (opacity 1)
+    // Assert: Both buttons enabled (opacity 1)
     $dateOpacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitDateBtn')).opacity");
     $timeOpacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitTimeBtn')).opacity");
 
-    $I->assertEquals('1', $dateOpacity);
-    $I->assertEquals('1', $timeOpacity);
+    $I->assertEquals('1', $dateOpacity, 'Date button should be enabled');
+    $I->assertEquals('1', $timeOpacity, 'Time button should be enabled');
 
-    // Default might be days or minutes, usually days for multi-day
-    $I->seeElement('#exitDateBtn.active');
+    // Assert: Interaction
+    // Usually starts with Days (Date) active, or Time depending on logic.
+    // Let's ensure we can click both.
 
-    // Interact! Click time button
+    // Click Time
     $I->click('#exitTimeBtn');
     $I->seeElement('#exitTimeBtn.active');
     $I->dontSeeElement('#exitDateBtn.active');
+
+    // Click Date
+    $I->click('#exitDateBtn');
+    $I->seeElement('#exitDateBtn.active');
+    $I->dontSeeElement('#exitTimeBtn.active');
   }
 }

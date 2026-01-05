@@ -126,19 +126,19 @@ class ScenarioTester
             // Rule: STOP DATA = START DATA (Editable)
             // Rule: STOP GODZINA = Editable
             // Logic: Fully editable, default +1 hour (can cross midnight)
-            $validTo->modify('+1 hour');
+            $validTo->modify('+30 minutes');
             break;
 
         case '1_1_1': // Multi, Hourly, Midnight
             // Rule: STOP DATA = START DATA (Editable)
             // Rule: STOP GODZINA = Editable
             // Logic: Fully editable, default +1 hour
-            $validTo->modify('+1 hour');
+            $validTo->modify('+30 minutes');
             break;
 
         default:
             // Fallback
-            $validTo->modify('+1 hour');
+            $validTo->modify('+30 minutes');
       }
 
       return $validTo->format('Y-m-d H:i:s');

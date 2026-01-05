@@ -111,7 +111,7 @@ function handleSliderChange(newValue) {
 
     // Max Limit for Single Day Hourly
     let maxLimit = Infinity;
-    if (scenario === 'scenario_1_0_0' || scenario === 'scenario_1_0_1') {
+    if (scenario === 'scenario_0_1_0' || scenario === 'scenario_0_1_1') {
         let baseTime = new Date(state.entryTime);
         if (CONFIG.valid_to) {
             const vt = new Date(CONFIG.valid_to);
@@ -233,7 +233,7 @@ export function updateSpinner(visualDegrees, isFromAuthoredInteraction = false, 
     const scenario = state.getModeScenario();
     
     // Logic Mapping
-    if (scenario === 'scenario_0_1_0' || scenario === 'scenario_0_1_1') {
+    if (scenario === 'scenario_1_0_0' || scenario === 'scenario_1_0_1') {
         // Daily Multi
         const daysFromAngle = Math.round((visualDegrees / 360) * 7);
         state.selectedDays = daysFromAngle;
@@ -254,7 +254,7 @@ export function updateSpinner(visualDegrees, isFromAuthoredInteraction = false, 
         updateExitTimeDisplay(exitDate);
         state.addedMinutes = Math.max(0, Math.floor((exitDate - entryTime) / 60000));
 
-    } else if (scenario === 'scenario_1_0_0' || scenario === 'scenario_1_0_1') {
+    } else if (scenario === 'scenario_0_1_0' || scenario === 'scenario_0_1_1') {
         // Hourly Single
         const minutesFromAngle = Math.round((visualDegrees / 360) * 60);
         state.selectedMinutes = minutesFromAngle;
