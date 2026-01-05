@@ -604,11 +604,12 @@ if ($ticket) {
 
   <!-- Pass PHP variables to JS -->
   <script>
-    const TICKET_ID = "<?php echo $ticket_id; ?>";
-    const INITIAL_FEE = <?php echo $fee; ?>;
-    const HOURLY_RATE = <?php echo $config['settings']['hourly_rate']; ?>;
+    // Expose globals to window for ES configuration module
+    window.TICKET_ID = "<?php echo $ticket_id; ?>";
+    window.INITIAL_FEE = <?php echo $fee; ?>;
+    window.HOURLY_RATE = <?php echo $config['settings']['hourly_rate']; ?>;
 
-    const API_SETTINGS = {
+    window.API_SETTINGS = {
       time_mode: <?php
       if (isset($ticket['api_data']['FEE_TYPE'])) {
         echo "'" . ($ticket['api_data']['FEE_TYPE'] == '0' ? "daily" : "hourly") . "'";
@@ -640,48 +641,30 @@ if ($ticket) {
       valid_to: <?php echo isset($ticket['api_data']['VALID_TO']) ? json_encode($ticket['api_data']['VALID_TO']) : 'null'; ?>
     };
 
-    const SCENARIO_TEST_MODE = <?php echo $scenarioTester->isEnabled() ? 'true' : 'false'; ?>;
+    window.SCENARIO_TEST_MODE = <?php echo $scenarioTester->isEnabled() ? 'true' : 'false'; ?>;
 
-    const CONFIG = {
+    window.CONFIG = {
       default_duration: 60,
       currency: "<?php echo $config['settings']['currency']; ?>",
       hourly_rate: <?php echo $config['settings']['hourly_rate']; ?>,
-      time_mode: API_SETTINGS.time_mode,
-      duration_mode: API_SETTINGS.duration_mode,
-      day_counting: API_SETTINGS.day_counting,
+      time_mode: window.API_SETTINGS.time_mode,
+      duration_mode: window.API_SETTINGS.duration_mode,
+      day_counting: window.API_SETTINGS.day_counting,
       valid_to: <?php echo isset($ticket['api_data']['VALID_TO']) ? json_encode($ticket['api_data']['VALID_TO']) : 'null'; ?>
     };
-    const IS_PAID = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
-    const ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";
-    let ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:00') : ''; ?>";
+    window.IS_PAID = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] === 'paid') ? 'true' : 'false'; ?>;
+    window.ENTRY_TIME = "<?php echo $ticket ? $entry_time->format('Y-m-d H:i:00') : ''; ?>";
+    window.ENTRY_TIME_RAW = "<?php echo $ticket ? $entry_time->format('Y-m-d\TH:i') : ''; ?>";
 
-    const IS_PRE_BOOKING = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] !== 'paid' && $ticket_id) ? 'true' : 'false'; ?>;
-    const IS_EDITABLE_START = IS_PRE_BOOKING;
+    window.IS_PRE_BOOKING = <?php echo ($ticket && isset($ticket['status']) && $ticket['status'] !== 'paid' && $ticket_id) ? 'true' : 'false'; ?>;
+    window.IS_EDITABLE_START = window.IS_PRE_BOOKING;
 
-    // Parking modes configuration
-    const TIME_MODE = API_SETTINGS.time_mode; // daily or hourly
-    const DURATION_MODE = API_SETTINGS.duration_mode; // single_day or multi_day
-    const DAY_COUNTING = API_SETTINGS.day_counting; // from_entry or from_midnight
-
-    const FEE_CONFIG = {
-      FEE_MULTI_DAY: API_SETTINGS.fee_multi_day_raw !== null ? parseInt(API_SETTINGS.fee_multi_day_raw) : (API_SETTINGS.duration_mode === 'multi_day' ? 1 : 0),
-      FEE_TYPE: API_SETTINGS.fee_type_raw !== null && API_SETTINGS.fee_type_raw !== 'null' ? parseInt(API_SETTINGS.fee_type_raw) : (API_SETTINGS.time_mode === 'hourly' ? 1 : 0),
-      FEE_STARTS_TYPE: API_SETTINGS.fee_starts_type_raw !== null ? parseInt(API_SETTINGS.fee_starts_type_raw) : (API_SETTINGS.day_counting === 'from_midnight' ? 1 : 0),
-      TICKET_EXIST: parseInt(API_SETTINGS.ticket_exist || 0),
-      VALID_TO: API_SETTINGS.valid_to ? new Date(API_SETTINGS.valid_to) : null
-    };
-
-    function getModeScenario() {
-      return `scenario_${FEE_CONFIG.FEE_TYPE}_${FEE_CONFIG.FEE_MULTI_DAY}_${FEE_CONFIG.FEE_STARTS_TYPE}`;
-    }
-
-    console.log("FEE_CONFIG:", FEE_CONFIG);
-    console.log("Current Scenario:", getModeScenario());
+    // Log for debugging
+    console.log("Global Config Loaded:", window.API_SETTINGS);
   </script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>
-  <script src="script.js"></script>
-<!-- <script type="module" src="public/js/main.js"></script> -->
+  <script type="module" src="public/js/main.js"></script>
   <!-- SVG filter (put once per page, e.g. before </body>) -->
   <svg width="0" height="0" style="position: absolute;">
     <filter id="lg-dist">
