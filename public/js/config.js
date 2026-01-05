@@ -15,7 +15,8 @@ export const CONFIG = globals.CONFIG;
 export const IS_PAID = globals.IS_PAID;
 export const ENTRY_TIME_RAW = globals.ENTRY_TIME_RAW;
 export const IS_PRE_BOOKING = globals.IS_PRE_BOOKING;
-export const IS_EDITABLE_START = globals.IS_EDITABLE_START;
+// export const IS_EDITABLE_START = globals.IS_EDITABLE_START;
+export const IS_EDITABLE_START = false;
 
 // Initial Entry Time (will be managed by state, but useful as config/constant starter)
 export const INITIAL_ENTRY_TIME = globals.ENTRY_TIME;
