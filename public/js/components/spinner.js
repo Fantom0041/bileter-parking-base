@@ -323,10 +323,8 @@ export function updateSpinner(visualDegrees, isFromAuthoredInteraction = false, 
     if (CONFIG.valid_to) {
         const validToDate = new Date(CONFIG.valid_to);
         if (state.currentExitTime < validToDate) {
-             spinnerValue.innerHTML = `<span style="color:var(--error);">Limit!</span>`;
-             setTimeout(() => {
-                  // Restore visuals? Logic complex, fallback to next render
-             }, 500);
+           
+           
              updateExitTimeDisplay(validToDate);
              // Skip fee calc if invalid?
              return;

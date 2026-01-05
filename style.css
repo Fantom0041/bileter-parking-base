@@ -747,14 +747,7 @@ body {
     font-size: 14px;
 }
 
-.btn-secondary {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-}
+
 
 /* New Ticket Form */
 .error-container {
@@ -1222,18 +1215,34 @@ body {
 
 .modal-actions button {
     flex: 1;
-    height: 44px;
-    border-radius: 12px;
-    font-size: 15px;
 }
 
 .btn-secondary {
-    background: #F5F5F5;
-    color: var(--text-primary);
+    width: 100%;
+    height: 56px;
+    background: transparent;
+    border: 2px solid var(--primary);
+    border-radius: 8px;
+    color: var(--primary);
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-secondary:hover {
-    background: #EEEEEE;
+    background: rgba(249, 110, 44, 0.05);
+    border-color: var(--primary-active);
+    color: var(--primary-active);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.btn-secondary:active {
+    transform: scale(0.98);
 }
 
 

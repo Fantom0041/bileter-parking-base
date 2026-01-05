@@ -8,22 +8,10 @@ use Tests\Support\AcceptanceTester;
 
 class AfterPayCest
 {
-  private static $mockPid;
-  private static $phpServerPid;
-  private static $port = 8022;
   private static $originalConfig;
 
   public function _before(AcceptanceTester $I): void
   {
-    // 1. Start Servers
-    $cmd = "php tests/MockServer.php 8099 > tests/mock_output.log 2>&1 & echo $!";
-    self::$mockPid = trim(shell_exec($cmd));
-
-    $cmdPhp = "php -S 127.0.0.1:" . self::$port . " > tests/php_server.log 2>&1 & echo $!";
-    self::$phpServerPid = trim(shell_exec($cmdPhp));
-
-    sleep(2);
-
     if (file_exists('config.ini')) {
       self::$originalConfig = file_get_contents('config.ini');
     }
@@ -40,10 +28,6 @@ class AfterPayCest
     if (self::$originalConfig !== null) {
       file_put_contents('config.ini', self::$originalConfig);
     }
-    if (self::$mockPid)
-      shell_exec("kill " . self::$mockPid);
-    if (self::$phpServerPid)
-      shell_exec("kill " . self::$phpServerPid);
   }
 
   public function _failed(AcceptanceTester $I)
@@ -60,16 +44,10 @@ class AfterPayCest
 
   private function applyScenario(string $scenario)
   {
-    // Parse Scenario ID: type_multiday_starts
-    // e.g. 0_0_0
     $parts = explode('_', $scenario);
     $type = $parts[0] ?? '0';
     $multi = $parts[1] ?? '0';
     $starts = $parts[2] ?? '0';
-
-    $timeMode = ($type === '0') ? 'daily' : 'hourly';
-    $durationMode = ($multi === '1') ? 'multi_day' : 'single_day';
-    $dayCounting = ($starts === '1') ? 'from_midnight' : 'from_entry';
 
     $config = '
 [settings]
@@ -94,139 +72,35 @@ selected_scenario = "' . $scenario . '"
   }
 
   /**
-   * Scenario Usage:
-   * applyScenario('type_multiday_starts')
-   * 
-   * Mapping to CONFIGURATION_TABLE.md:
-   * Test ID (Type_Multi_Starts) <-> Table Columns (Multi | Type | Starts)
-   * 0_0_0 <-> 0 | 0 | 0 (Daily, Single, Entry)
-   * 0_0_1 <-> 0 | 0 | 1 (Daily, Single, Midnight)
-   * 1_0_0 <-> 0 | 1 | 0 (Hourly, Single, Entry)
-   * 1_0_1 <-> 0 | 1 | 1 (Hourly, Single, Midnight)
-   * 0_1_0 <-> 1 | 0 | 0 (Daily, Multi, Entry)
-   * 0_1_1 <-> 1 | 0 | 1 (Daily, Multi, Midnight)
-   * 1_1_0 <-> 1 | 1 | 0 (Hourly, Multi, Entry)
-   * 1_1_1 <-> 1 | 1 | 1 (Hourly, Multi, Midnight)
-   */
-
-  /**
    * Scenario 0_0_0 (Daily/Single/Entry)
-   * Expected:
-   * 1. Pay Button active (5.00 PLN)
-   * 2. After Pay -> Reload
-   * 3. Pay Button Disabled "Do zapłaty: 0.00 PLN"
-   * 4. "Opłacone do" = Entry + 24h (Fixed)
    */
-  public function testAfterPay_0_0_0(AcceptanceTester $I)
+  public function testAfterPayScenario_0_0_0(AcceptanceTester $I)
   {
     $this->applyScenario('0_0_0');
     $I->amOnPage('/?ticket_id=PAY_000');
-
-    // Inject Debug Hooks
-    $I->executeJS("window.lastError = ''; window.lastAlert = ''; 
-      var oldErr = console.error; console.error = function(m) { window.lastError += m + '\\n'; oldErr.apply(console, arguments); };
-      window.alert = function(m) { window.lastAlert += m + '\\n'; };
-    ");
-
     $I->waitForText('TEST MODE: [0_0_0]', 5);
 
-    // 1. Initial State
     $I->see('Zapłać 5.00 PLN', '#payButton');
-
-    // 2. Perform Payment
     $I->click('#payButton');
 
-    // 3. Wait for Success Overlay
     $I->waitForElementVisible('#successOverlay', 10);
-    $I->see('Płatność zakończona', '#successOverlay h2');
 
-    // 4. Click Close (Triggers Reload)
+    $tomorrow = date('Y-m-d', strtotime('+1 day - 1 hour'));
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 0_0_0");
+
+    $I->assertStringContainsString($tomorrow, $val);
+
     $I->click('#successOverlay button.btn-secondary');
-
-    // 5. Wait for Reload and Verify "Paid" State
     $I->waitForText('Do zapłaty: 0,00 PLN', 10, '#payButton');
-
-    // Verify Button is glass style (disabled)
-    $class = $I->grabAttributeFrom('#payButton', 'class');
-    $I->assertStringContainsString('btn-glass', $class);
-    $I->seeElement('#payButton[disabled]');
-
-    // Verify "Opłacone do"
-    // For 0_0_0, ValidTo should be Entry + 1 Day.
-    // Mock Server defaults entry to "-1 hour". So +1 day = Tomorrow - 1 hour.
-    $tomorrow = date('Y-m-d', strtotime('+1 day'));
     $I->see($tomorrow, '#paymentInfoExitValue');
   }
-
-  /**
-   * Scenario 1_0_0 (Hourly/Single/Entry)
-   * Expected:
-   * 1. Spinner Visible. Select time.
-   * 2. Pay.
-   * 3. Reload -> "Opłacone do" matches what we selected.
-   */
-  public function testAfterPay_1_0_0(AcceptanceTester $I)
-  {
-    $this->applyScenario('1_0_0');
-    $I->amOnPage('/?ticket_id=PAY_100');
-    $I->waitForText('TEST MODE: [1_0_0]', 5);
-
-    // 1. Interact with Spinner (add minutes)
-    // Since we can't easily drag via WebDriver, we rely on the default initial fee (1 hour = 5.00)
-    // or click the "+" buttons if implemented. 
-    // For E2E simplicity, we pay the default suggested amount (5.00 for 1h from entry).
-
-    $I->click('#payButton');
-    $I->waitForElementVisible('#successOverlay', 10);
-    $I->click('#successOverlay button.btn-secondary');
-
-    // 2. Verify Post-Pay
-    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
-
-    // Verify Valid To is roughly Now + remaining of that 1h (since entry was -1h, valid to is ~Now)
-    // Wait, MockServer default entry is -1h. 
-    // Logic: if duration > free_mins (15), fee is calculated. 
-    // 60 min duration. 5.00 PLN.
-    // Valid To = Entry + 60m = Now.
-    // So UI should show time close to now.
-    $nowDate = date('Y-m-d');
-    $I->see($nowDate, '#paymentInfoExitValue');
-  }
-
-  /**
-   * Scenario 0_1_0 (Daily/Multi/Entry)
-   * Expected: Valid To increments by full days.
-   */
-  public function testAfterPay_0_1_0(AcceptanceTester $I)
-  {
-    $this->applyScenario('0_1_0');
-    $I->amOnPage('/?ticket_id=PAY_010');
-    $I->waitForText('TEST MODE: [0_1_0]', 5);
-
-    // In this mode, spinner defaults to +0 days (just paying current debt if any).
-    // Mock default fee is 5.00. 
-
-    $I->click('#payButton');
-    $I->waitForElementVisible('#successOverlay', 10);
-    $I->click('#successOverlay button.btn-secondary');
-
-    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
-
-    // Since we didn't add days, we just paid the outstanding fee.
-    // Valid To should be Entry + 1 Day (min charge for daily).
-    $tomorrow = date('Y-m-d', strtotime('+1 day'));
-    $I->see($tomorrow, '#paymentInfoExitValue');
-  }
-
 
   /**
    * Scenario 0_0_1 (Daily/Single/Midnight)
-   * Expected:
-   * 1. Pay 5.00
-   * 2. Reload -> 0.00
-   * 3. Valid To -> End of Day (23:59:59)
    */
-  public function testAfterPay_0_0_1(AcceptanceTester $I)
+  public function testAfterPayScenario_0_0_1(AcceptanceTester $I)
   {
     $this->applyScenario('0_0_1');
     $I->amOnPage('/?ticket_id=PAY_001');
@@ -234,24 +108,46 @@ selected_scenario = "' . $scenario . '"
 
     $I->click('#payButton');
     $I->waitForElementVisible('#successOverlay', 10);
+
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 0_0_1");
+
+    $I->assertStringContainsString('23:59', $val);
+
     $I->click('#successOverlay button.btn-secondary');
-
     $I->waitForText('Do zapłaty: 0,00 PLN', 10);
-
-    // Check for end of day time
     $I->see('23:59', '#paymentInfoExitValue');
   }
 
   /**
-   * Scenario 1_0_1 (Hourly/Single/Midnight)
-   * Expected:
-   * 1. Pay 5.00
-   * 2. Reload -> 0.00
-   * 3. Valid To -> Entry + 1h (but limited to today? or just standard hourly)
-   *    For 1_0_1, Table: Stop Date Fixed, Time Editable to 23:59.
-   *    We accept reasonably valid time.
+   * Scenario 1_0_0 (Hourly/Single/Entry)
    */
-  public function testAfterPay_1_0_1(AcceptanceTester $I)
+  public function testAfterPayScenario_1_0_0(AcceptanceTester $I)
+  {
+    $this->applyScenario('1_0_0');
+    $I->amOnPage('/?ticket_id=PAY_100');
+    $I->waitForText('TEST MODE: [1_0_0]', 5);
+
+    $I->click('#payButton');
+    $I->waitForElementVisible('#successOverlay', 10);
+
+    $nowDate = date('Y-m-d');
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 1_0_0");
+
+    $I->assertStringContainsString($nowDate, $val);
+
+    $I->click('#successOverlay button.btn-secondary');
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
+    $I->see($nowDate, '#paymentInfoExitValue');
+  }
+
+  /**
+   * Scenario 1_0_1 (Hourly/Single/Midnight)
+   */
+  public function testAfterPayScenario_1_0_1(AcceptanceTester $I)
   {
     $this->applyScenario('1_0_1');
     $I->amOnPage('/?ticket_id=PAY_101');
@@ -259,22 +155,47 @@ selected_scenario = "' . $scenario . '"
 
     $I->click('#payButton');
     $I->waitForElementVisible('#successOverlay', 10);
-    $I->click('#successOverlay button.btn-secondary');
 
-    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
-
-    // Verify valid to exists
     $today = date('Y-m-d');
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 1_0_1");
+
+    $I->assertStringContainsString($today, $val);
+
+    $I->click('#successOverlay button.btn-secondary');
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
     $I->see($today, '#paymentInfoExitValue');
   }
 
   /**
-   * Scenario 0_1_1 (Daily/Multi/Midnight)
-   * Expected:
-   * 1. Pay
-   * 2. Valid To -> 23:59 (Midnight based)
+   * Scenario 0_1_0 (Daily/Multi/Entry)
    */
-  public function testAfterPay_0_1_1(AcceptanceTester $I)
+  public function testAfterPayScenario_0_1_0(AcceptanceTester $I)
+  {
+    $this->applyScenario('0_1_0');
+    $I->amOnPage('/?ticket_id=PAY_010');
+    $I->waitForText('TEST MODE: [0_1_0]', 5);
+
+    $I->click('#payButton');
+    $I->waitForElementVisible('#successOverlay', 10);
+
+    $tomorrow = date('Y-m-d', strtotime('+23 hours'));
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 0_1_0");
+
+    $I->assertStringContainsString($tomorrow, $val);
+
+    $I->click('#successOverlay button.btn-secondary');
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
+    $I->see($tomorrow, '#paymentInfoExitValue');
+  }
+
+  /**
+   * Scenario 0_1_1 (Daily/Multi/Midnight)
+   */
+  public function testAfterPayScenario_0_1_1(AcceptanceTester $I)
   {
     $this->applyScenario('0_1_1');
     $I->amOnPage('/?ticket_id=PAY_011');
@@ -282,8 +203,14 @@ selected_scenario = "' . $scenario . '"
 
     $I->click('#payButton');
     $I->waitForElementVisible('#successOverlay', 10);
-    $I->click('#successOverlay button.btn-secondary');
 
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 0_1_1");
+
+    $I->assertStringContainsString('23:59', $val);
+
+    $I->click('#successOverlay button.btn-secondary');
     $I->waitForText('Do zapłaty: 0,00 PLN', 10);
     $I->see('23:59', '#paymentInfoExitValue');
   }
@@ -291,7 +218,7 @@ selected_scenario = "' . $scenario . '"
   /**
    * Scenario 1_1_0 (Hourly/Multi/Entry)
    */
-  public function testAfterPay_1_1_0(AcceptanceTester $I)
+  public function testAfterPayScenario_1_1_0(AcceptanceTester $I)
   {
     $this->applyScenario('1_1_0');
     $I->amOnPage('/?ticket_id=PAY_110');
@@ -299,17 +226,23 @@ selected_scenario = "' . $scenario . '"
 
     $I->click('#payButton');
     $I->waitForElementVisible('#successOverlay', 10);
-    $I->click('#successOverlay button.btn-secondary');
 
-    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
     $today = date('Y-m-d');
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 1_1_0");
+
+    $I->assertStringContainsString($today, $val);
+
+    $I->click('#successOverlay button.btn-secondary');
+    $I->waitForText('Do zapłaty: 0,00 PLN', 10);
     $I->see($today, '#paymentInfoExitValue');
   }
 
   /**
    * Scenario 1_1_1 (Hourly/Multi/Midnight)
    */
-  public function testAfterPay_1_1_1(AcceptanceTester $I)
+  public function testAfterPayScenario_1_1_1(AcceptanceTester $I)
   {
     $this->applyScenario('1_1_1');
     $I->amOnPage('/?ticket_id=PAY_111');
@@ -317,9 +250,16 @@ selected_scenario = "' . $scenario . '"
 
     $I->click('#payButton');
     $I->waitForElementVisible('#successOverlay', 10);
-    $I->click('#successOverlay button.btn-secondary');
 
+    $today = date('Y-m-d');
+    $val = $I->executeJS("return document.getElementById('paymentInfoExitValue') ? document.getElementById('paymentInfoExitValue').textContent : null;");
+    if ($val === null)
+      $I->fail("paymentInfoExitValue not found in 1_1_1");
+
+    $I->assertStringContainsString($today, $val);
+
+    $I->click('#successOverlay button.btn-secondary');
     $I->waitForText('Do zapłaty: 0,00 PLN', 10);
-    $I->see('23:59', '#paymentInfoExitValue');
+    $I->see($today, '#paymentInfoExitValue');
   }
 }

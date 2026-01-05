@@ -65,6 +65,26 @@ export function initPayment() {
                     qrCode.innerText = "OPŁACONO";
                 }
                 
+                if (data.valid_to) {
+                    const paymentInfoExitValue = document.getElementById('paymentInfoExitValue');
+                    if (paymentInfoExitValue) {
+                        paymentInfoExitValue.textContent = data.valid_to;
+                        paymentInfoExitValue.style.opacity = '1';
+                    }
+                    CONFIG.valid_to = data.valid_to;
+                }
+                
+                if (data.fee_paid !== undefined) {
+                    const feePaidValue = document.getElementById('feePaidValue');
+                    if (feePaidValue) {
+                        feePaidValue.innerText = parseFloat(data.fee_paid).toFixed(2);
+                    }
+                    API_SETTINGS.fee_paid = data.fee_paid * 100; // Keep in sync with raw grosze if needed
+                }
+
+                state.currentFee = 0;
+                updatePayButton();
+
                 successOverlay.classList.add('visible');
                 paymentSheet.style.transform = 'translate(-50%, 100%)';
             } else {

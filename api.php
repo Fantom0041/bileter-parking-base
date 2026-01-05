@@ -361,12 +361,20 @@ if ($action === 'pay') {
         $payResult = $client->payParkTicket($ticket_id, $entry_time_str, $exit_time_str, $feeInt);
 
         if ($payResult['success']) {
+            // Fetch updated info to get the new VALID_TO and FEE_PAID
+            $newInfo = $client->getParkTicketInfo($ticket_id, $entry_time_str, $exit_time_str);
+            $newTicketData = [];
+            if ($newInfo['success'] && !empty($newInfo['tickets'])) {
+                $newTicketData = $newInfo['tickets'][0];
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Płatność zakończona powodzeniem',
                 'receipt_number' => $payResult['receipt_number'],
-                'new_qr_code' => "REC-" . ($payResult['receipt_number'] ?? uniqid()), // Fallback for UI
-                'valid_until' => date('H:i', strtotime('+15 minutes'))
+                'new_qr_code' => "REC-" . ($payResult['receipt_number'] ?? uniqid()),
+                'valid_to' => $newTicketData['VALID_TO'] ?? date('Y-m-d H:i:s', strtotime('+15 minutes')),
+                'fee_paid' => isset($newTicketData['FEE_PAID']) ? $newTicketData['FEE_PAID'] / 100.0 : 0
             ]);
         } else {
             throw new Exception("Błąd płatności: " . ($payResult['error'] ?? 'Nieznany błąd API'));
