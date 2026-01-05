@@ -22,7 +22,7 @@ header('Content-Type: application/json');
 
 // 1. Wczytanie konfiguracji i danych
 require_once 'ApiClient.php';
-$configPath = getenv('CONFIG_FILE') ?: 'config.ini';
+$configPath = getenv('PARK_CONFIG_FILE') ?: 'config.ini';
 $config = parse_ini_file($configPath, true);
 if ($config === false) {
     http_response_code(500);

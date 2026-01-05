@@ -174,7 +174,7 @@ if ($ticket) {
     if ($apiFeeRaw > 0) {
       $fee = ($apiFeeRaw - $apiFeePaidRaw) / 100.0;
       $status_message = "Aktywne (Opłata wyliczona przez system)";
-    } elseif ($duration_minutes <= $config['settings']['free_minutes']) {
+    } elseif ($duration_minutes <= $config['settings']['free_minutes'] && !$scenarioTester->isEnabled()) {
       $fee = 0;
       $is_free_period = true;
       $status_message = "Okres bezpłatny (" . ($config['settings']['free_minutes'] - $duration_minutes) . " min pozostało)";
@@ -191,11 +191,26 @@ if ($ticket) {
       $isDaily = ($feeType == '0');
       $isSingleDay = ($feeMultiDay == '0');
 
-      // If Scenario Test is active, we skip the API Pre-calc call because it won't respect our fake flags 
-      // (API returns real data). We settle for local fee estimation or 0.
-      if ($scenarioTester->isEnabled()) {
-        // Dummy calculation for UI test
-        $fee = 10.00;
+      // If Scenario Test is active, we calculate fee based on the scenario-calculated VALID_TO
+      if ($scenarioTester->isEnabled() && isset($ticket['api_data']['VALID_TO'])) {
+        $entry = new DateTime($ticket['entry_time']);
+        $stop = new DateTime($ticket['api_data']['VALID_TO']);
+        $diff = $entry->diff($stop);
+        $mins = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i;
+
+        if ($isDaily) {
+          $days = $diff->days;
+          if ($diff->h > 0 || $diff->i > 0)
+            $days++;
+          $days = max(1, $days);
+          $fee = $days * 50.00; // Standard Daily Rate for tests
+        } else {
+          $hours = ceil($mins / 60);
+          $fee = $hours * ($config['settings']['hourly_rate'] ?? 5.00);
+        }
+
+        $paid = ($ticket['api_data']['FEE_PAID'] ?? 0) / 100.0;
+        $fee = max(0, $fee - $paid);
       } elseif ($isDaily && $isSingleDay) {
         // Daily + Single Day: Fee is calculated until End of Day (23:59:59)
         $calcExitTime = clone $entry_time;

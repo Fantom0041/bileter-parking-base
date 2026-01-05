@@ -93,7 +93,8 @@ export function initializeUI() {
     if (showCollapsedExit) {
          if (editExitBtnCollapsed) editExitBtnCollapsed.style.display = 'none';
          
-         let targetDate = new Date(state.entryTime);
+         let targetDate = new Date(); // Default to Now (for Hourly calc)
+         if (targetDate < new Date(state.entryTime)) targetDate = new Date(state.entryTime);
          if (scenario === 'scenario_0_0_0') {
              targetDate.setDate(targetDate.getDate() + 1);
          } else if (scenario === 'scenario_0_0_1') {
