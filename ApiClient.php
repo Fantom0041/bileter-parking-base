@@ -197,7 +197,7 @@ class ApiClient
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             // Check TICKET_EXIST flag
             $ticketExist = isset($response['TICKET_EXIST']) && $response['TICKET_EXIST'] == 1;
-            $this->logger->log('getParkTicketInfo ticketExist: ' . json_encode($ticketExist));
+            
 
             $ticketData = [
                 'BARCODE' => $response['BARCODE'] ?? $barcode, // Ticket ID from API
@@ -214,7 +214,7 @@ class ApiClient
                 'TICKET_EXIST' => $response['TICKET_EXIST'] ?? null,
                 'DATE' => $response['DATE'] ?? null
             ];
-            $this->logger->log('getParkTicketInfo ticketData: ' . json_encode($ticketData));
+          
 
             return [
                 'success' => true,

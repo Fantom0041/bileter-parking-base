@@ -51,19 +51,119 @@ if ($ticket_id) {
       $loginResult = $client->login();
       $logger->log("loginResult: " . json_encode($loginResult));
       if ($loginResult['success']) {
-        $info = $client->getParkTicketInfo($ticket_id);
-        $logger->log("getParkTicketInfo in index.php start of try block: " . json_encode($info));
+        // --- STEP 1: INITIAL PROBE (Discovery) ---
+        // We use current time for both Start and End to force API to return config
+        // without applying duration logic yet, but finding the ticket.
+        $probeTime = date('Y-m-d H:i:s');
+        $info = $client->getParkTicketInfo($ticket_id, $probeTime, $probeTime);
+        $logger->log("Probe Call (getParkTicketInfo) initial: " . json_encode($info));
+
         if ($info['success']) {
           if (!empty($info['tickets'])) {
-            $apiData = $info['tickets'][0]; // Take the first active ticket
-            $logger->log("API Data in page load: " . json_encode($apiData));
-            $ticket = [
-              'plate' => !empty($apiData['REGISTRATION_NUMBER']) ? $apiData['REGISTRATION_NUMBER'] : ($apiData['BARCODE'] ?? $ticket_id),
-              'entry_time' => $apiData['VALID_FROM'],
-              'status' => 'active',
-              'is_new' => false, // Found in DB -> Existing
-              'api_data' => $apiData
-            ];
+            $apiData = $info['tickets'][0]; // Active ticket data
+            $logger->log("Probe Result Data: " . json_encode($apiData));
+
+            // Extract Flags
+            $feeType = $apiData['FEE_TYPE'] ?? '0';            // 0=Daily, 1=Hourly
+            $feeMultiDay = $apiData['FEE_MULTI_DAY'] ?? '1';      // 0=Single, 1=Multi
+            $feeStartsType = $apiData['FEE_STARTS_TYPE'] ?? '0';  // 0=Entry, 1=Midnight
+
+            // Extract Real Entry Time
+            $realEntryTimeStr = $apiData['VALID_FROM'];
+            $realEntryTime = new DateTime($realEntryTimeStr);
+
+            // --- STEP 2: DETERMINE TARGET EXIT TIME (Scenario Logic) ---
+            $calculatedExitTime = clone $realEntryTime;
+
+            // Logic Mapping based on Multi_Type_Starts
+            // 0_0_0 (Single/Daily/Entry): Entry + 1 Day
+            if ($feeMultiDay == '0' && $feeType == '0' && $feeStartsType == '0') {
+              $calculatedExitTime->modify('+1 day');
+            }
+            // 0_0_1 (Single/Daily/Midnight): End of Entry Day
+            elseif ($feeMultiDay == '0' && $feeType == '0' && $feeStartsType == '1') {
+              $calculatedExitTime->setTime(23, 59, 59);
+            }
+            // 0_1_1 (Single/Hourly/Midnight): Manual selection
+            // Editable: Skip default calculation/refetch
+            elseif ($feeMultiDay == '0' && $feeType == '1' && $feeStartsType == '1') {
+              // No op
+            }
+            // 0_1_0 (Single/Hourly/Entry): Manual selection
+            // Editable: Skip default calculation/refetch
+            elseif ($feeMultiDay == '0' && $feeType == '1' && $feeStartsType == '0') {
+              // No op
+            }
+            // 1_0_0 (Multi/Daily/Entry): Entry + 1 Day
+            elseif ($feeMultiDay == '1' && $feeType == '0' && $feeStartsType == '0') {
+              $calculatedExitTime->modify('+1 day');
+            }
+            // 1_0_1 (Multi/Daily/Midnight): End of Entry Day
+            elseif ($feeMultiDay == '1' && $feeType == '0' && $feeStartsType == '1') {
+              $calculatedExitTime->setTime(23, 59, 59);
+            }
+            // 1_1_x (Multi/Hourly): Manual selection
+            // Editable: Skip default calculation/refetch
+            elseif ($feeMultiDay == '1' && $feeType == '1') {
+              // No op
+            } else {
+              // Default fallback
+              // No op
+            }
+
+            // --- STEP 3: FEE REFETCH (If needed) ---
+            // Only Refetch if calculated exit is effectively different/later than Entry.
+
+            if ($calculatedExitTime > $realEntryTime) {
+              $calcExitStr = $calculatedExitTime->format('Y-m-d H:i:s');
+
+              $logger->log("Refetching Fee for: $realEntryTimeStr -> $calcExitStr");
+
+              $feeInfo = $client->getParkTicketInfo(
+                $ticket_id,
+                $realEntryTimeStr,
+                $calcExitStr
+              );
+
+              if ($feeInfo['success'] && !empty($feeInfo['tickets'])) {
+                // Use the Refetched Data
+                $finalApiData = $feeInfo['tickets'][0];
+                $logger->log("Refetch Result: " . json_encode($finalApiData));
+
+                // IMPORTANT: Ensure VALID_TO in api_data matches our Calculated Exit 
+                // so Frontend displays it correctly as the "Pay Until" or "Calculation Basis"
+                // The API might return its own VALID_TO, but for the purpose of the UI "Simulation", 
+                // we want to ensure consistency if the API honored our request.
+                // Usually API returns what we asked for in VALID_TO if it's a simulation call.
+
+                $ticket = [
+                  'plate' => !empty($finalApiData['REGISTRATION_NUMBER']) ? $finalApiData['REGISTRATION_NUMBER'] : ($finalApiData['BARCODE'] ?? $ticket_id),
+                  'entry_time' => $finalApiData['VALID_FROM'],
+                  'status' => 'active',
+                  'is_new' => false,
+                  'api_data' => $finalApiData
+                ];
+              } else {
+                // Fallback to Probe data if Refetch fails (unlikely)
+                $ticket = [
+                  'plate' => !empty($apiData['REGISTRATION_NUMBER']) ? $apiData['REGISTRATION_NUMBER'] : ($apiData['BARCODE'] ?? $ticket_id),
+                  'entry_time' => $apiData['VALID_FROM'],
+                  'status' => 'active',
+                  'is_new' => false,
+                  'api_data' => $apiData
+                ];
+              }
+            } else {
+              // No Refetch needed (e.g. Hourly modes where we wait for user input)
+              // Just use the Probe data
+              $ticket = [
+                'plate' => !empty($apiData['REGISTRATION_NUMBER']) ? $apiData['REGISTRATION_NUMBER'] : ($apiData['BARCODE'] ?? $ticket_id),
+                'entry_time' => $apiData['VALID_FROM'],
+                'status' => 'active',
+                'is_new' => false,
+                'api_data' => $apiData
+              ];
+            }
           } elseif (isset($info['is_new']) && $info['is_new']) {
             // API confirmed new ticket session (TICKET_EXIST=0 or Error -3 handled)
             $ticket = [
@@ -500,7 +600,7 @@ if ($ticket) {
             // User verified that VALID_TO is start/grace period, DATE is the correct stop time.
             $validToRaw = $ticket['api_data']['VALID_TO'] ?? null;
 
-            $logger->log('Valid To Raw in Payment Info: ' . json_encode($ticket));
+
             if ($validToRaw && $validToRaw > $validFrom) {
               $validTo = $validToRaw;
             }
