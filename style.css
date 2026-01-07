@@ -756,8 +756,11 @@ body {
     font-weight: 600;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     margin-top: 8px;
+    margin: 0 auto 16px;
+    max-width: 80%;
 }
 
 .ticket-msg {
