@@ -127,6 +127,8 @@ body {
 .license-plate {
     background: white;
     border-radius: 8px;
+    border: 2px solid #E0E0E0;
+    /* Added Border */
 
     display: flex;
 
@@ -384,6 +386,8 @@ body {
     background: white;
     padding: 16px 20px;
     border-radius: 8px;
+    border: 2px solid #E0E0E0;
+    /* Added Border */
     box-shadow: var(--shadow-soft);
     display: flex;
     justify-content: space-between;
@@ -641,8 +645,10 @@ body {
     top: 0;
     left: 0;
     width: 100%;
+    
     height: 100%;
     background: white;
+    
     z-index: 200;
     display: flex;
     align-items: center;
@@ -655,13 +661,29 @@ body {
 .success-overlay.visible {
     opacity: 1;
     pointer-events: all;
+  
+  
+  
+   
+
+
 }
 
 .success-content {
     text-align: center;
     width: 100%;
-    max-width: 320px;
+    max-width: 480px;
     padding: 24px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+     border-left: 2px solid #D0D0D0;
+    border-right: 2px solid #D0D0D0;
+}
+.success-content .btn-secondary {
+    max-width: 240px;
 }
 
 .checkmark-circle {

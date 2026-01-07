@@ -54,8 +54,10 @@ export function initPayment() {
 
             if (data.success) {
                 if (data.receipt_number) {
-                    qrCode.innerHTML = `<span style="font-size:18px; font-weight:700">PARAGON<br>${data.receipt_number}</span>`;
-                    state.lastReceiptNumber = data.receipt_number;
+                    qrCode.innerHTML = `<span style="font-size:18px; font-weight:700">OPŁACONY DO<br>${data.valid_to}</span>`;
+                    // state.lastReceiptNumber = data.receipt_number; // No longer needed for display, but keeping data might be useful if other logic uses it.
+                    // Actually user asked to remove "numer paragonu", so I will focus on the display.
+                    // The valid_to is available in data.valid_to as seen in line 68.
                 } else if (data.new_qr_code) {
                     qrCode.innerText = data.new_qr_code;
                     if(data.new_qr_code.startsWith('REC-')) {
