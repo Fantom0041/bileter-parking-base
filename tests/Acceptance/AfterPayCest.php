@@ -158,7 +158,8 @@ selected_scenario = "' . $scenario . '"
     $I->waitForText('Zapłać 50.00 PLN', 10, '#payButton');
     $I->click('#payButton');
 
-    $I->waitForElementVisible('#successOverlay', 15);
+    // Wait for payment processing and success overlay to appear
+    $I->waitForText('Płatność zakończona', 15, '#successOverlay');
 
     // ScenarioTester logic for 1_0_0 is `modify('+1 day')`.
     $tomorrow = date('Y-m-d', strtotime('+1 day'));
@@ -246,7 +247,8 @@ selected_scenario = "' . $scenario . '"
     $I->waitForText('Zapłać 5.00 PLN', 10, '#payButton');
     $I->click('#payButton');
 
-    $I->waitForElementVisible('#successOverlay', 10);
+    // Wait for payment processing and success overlay to appear
+    $I->waitForText('Płatność zakończona', 10, '#successOverlay');
 
     $I->click('#successOverlay button.btn-secondary');
     $I->waitForText('Do zapłaty: 0,00 PLN', 10);
@@ -266,7 +268,8 @@ selected_scenario = "' . $scenario . '"
     $I->waitForText('Zapłać 5.00 PLN', 10, '#payButton');
     $I->click('#payButton');
 
-    $I->waitForElementVisible('#successOverlay', 10);
+    // Wait for payment processing and success overlay to appear
+    $I->waitForText('Płatność zakończona', 10, '#successOverlay');
 
     $I->click('#successOverlay button.btn-secondary');
     $I->waitForText('Do zapłaty: 0,00 PLN', 10);

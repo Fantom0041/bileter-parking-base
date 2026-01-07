@@ -345,6 +345,8 @@ export function updateSpinner(visualDegrees, isFromAuthoredInteraction = false, 
 }
 
 export function initSpinner() {
+    let initialSelectedDays = 0;
+
     $("#slider").roundSlider({
         radius: 100,
         width: 20,
@@ -366,15 +368,21 @@ export function initSpinner() {
             state.isUserInteracted = true;
             if (state.clockInterval) clearInterval(state.clockInterval);
             state.clockInterval = null; 
+            
+            // Capture initial state
+            initialSelectedDays = state.selectedDays;
         },
         stop: function() {
             if (state.currentTimeMode === 'hourly' && state.currentDurationMode === 'multi_day' && state.currentUnit === 'days') {
-                if (state.editMode === 'entry') {
-                    const btn = document.getElementById('entryTimeBtn');
-                    if (btn) btn.click();
-                } else {
-                    const btn = document.getElementById('exitTimeBtn');
-                    if (btn) btn.click();
+                // Only switch if the value actually changed
+                if (state.selectedDays !== initialSelectedDays) {
+                    if (state.editMode === 'entry') {
+                        const btn = document.getElementById('entryTimeBtn');
+                        if (btn) btn.click();
+                    } else {
+                        const btn = document.getElementById('exitTimeBtn');
+                        if (btn) btn.click();
+                    }
                 }
             }
         }

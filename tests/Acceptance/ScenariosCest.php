@@ -142,6 +142,9 @@ selected_scenario = "' . $scenarioString . '"
     $I->amOnPage('/?ticket_id=UI_TEST&_t=' . time());
     $I->waitForText('TEST MODE: [1_0_0]', 5);
 
+    // Wait for JavaScript to initialize UI and apply styles
+    $I->waitForElement('#exitTimeBtn[style*="opacity"]', 5);
+
     // Assert: Spinner visible
     $display = $I->executeJS("return window.getComputedStyle(document.getElementById('spinnerContainer')).display");
     $I->assertNotEquals('none', $display, 'Spinner should be visible');
@@ -158,12 +161,12 @@ selected_scenario = "' . $scenarioString . '"
 
     // Time Button should NOT be active and should be faded (disabled)
     $I->dontSeeElement('#exitTimeBtn.active');
-    $timeOpacity = $I->executeJS("return window.getComputedStyle(document.getElementById('exitTimeBtn')).opacity");
-    $I->assertLessThan(1.0, (float) $timeOpacity, 'Time button should be faded/disabled');
+    $timeOpacity = $I->executeJS("return document.getElementById('exitTimeBtn').style.opacity");
+    $I->assertEquals('0.5', $timeOpacity, 'Time button should be faded/disabled (inline style)');
 
     // Assert: Pointer events none for time button
-    $timePointer = $I->executeJS("return window.getComputedStyle(document.getElementById('exitTimeBtn')).pointerEvents");
-    $I->assertEquals('none', $timePointer, 'Time button should not be clickable');
+    $timePointer = $I->executeJS("return document.getElementById('exitTimeBtn').style.pointerEvents");
+    $I->assertEquals('none', $timePointer, 'Time button should not be clickable (inline style)');
   }
 
   /**

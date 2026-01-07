@@ -264,8 +264,11 @@ export function initUIControls() {
                 exitDateBtn.classList.add('active');
                 exitTimeBtn.classList.remove('active');
                 updateSpinnerLabel();
-                state.totalDegrees = 0;
-                updateSpinner(0, false, false); // Calc fee?
+                
+                // Fix: Calculate degrees from stored state instead of resetting
+                const degrees = (state.selectedDays / 7) * 360;
+                state.totalDegrees = degrees;
+                updateSpinner(degrees, false, false); 
             }
         });
     }
@@ -277,8 +280,11 @@ export function initUIControls() {
                 exitTimeBtn.classList.add('active');
                 exitDateBtn.classList.remove('active');
                 updateSpinnerLabel();
-                state.totalDegrees = 0;
-                updateSpinner(0, false, false);
+                
+                // Fix: Calculate degrees from stored state instead of resetting
+                const degrees = (state.selectedMinutes / 60) * 360;
+                state.totalDegrees = degrees;
+                updateSpinner(degrees, false, false);
             }
         });
     }
