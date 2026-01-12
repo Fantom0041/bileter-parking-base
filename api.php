@@ -358,27 +358,108 @@ if ($action === 'pay') {
         }
 
         // 2. Perform Payment
-        $payResult = $client->payParkTicket($ticket_id, $entry_time_str, $exit_time_str, $feeInt);
+        // $payResult = $client->payParkTicket($ticket_id, $entry_time_str, $exit_time_str, $feeInt); // This line is removed as payment is now external
 
-        if ($payResult['success']) {
+        // if ($payResult['success']) { // This condition is removed as payment is now external
             // Fetch updated info to get the new VALID_TO and FEE_PAID
             $newInfo = $client->getParkTicketInfo($ticket_id, $entry_time_str, $exit_time_str);
-            $newTicketData = [];
-            if ($newInfo['success'] && !empty($newInfo['tickets'])) {
-                $newTicketData = $newInfo['tickets'][0];
-            }
+          // 4. Przetworzenie płatności
+$payment_url = null;
+$error_msg = null;
 
-            echo json_encode([
-                'success' => true,
-                'message' => 'Płatność zakończona powodzeniem',
-                'receipt_number' => $payResult['receipt_number'],
-                'new_qr_code' => "REC-" . ($payResult['receipt_number'] ?? uniqid()),
-                'valid_to' => $newTicketData['VALID_TO'] ?? date('Y-m-d H:i:s', strtotime('+15 minutes')),
-                'fee_paid' => isset($newTicketData['FEE_PAID']) ? $newTicketData['FEE_PAID'] / 100.0 : 0
-            ]);
-        } else {
-            throw new Exception("Błąd płatności: " . ($payResult['error'] ?? 'Nieznany błąd API'));
-        }
+if (!empty($config['dotpay']['enabled']) && $config['dotpay']['enabled'] == 1) {
+    // tryb DOTPAY
+    
+    // Oblicz kwotę (na wszelki wypadek, choć przyszła w $amount, lepiej ufać serwerowi)
+    // W prawdziwym systemie powtórzylibyśmy calculate_fee. Tutaj użyjmy $amount z sanity check.
+    // Zakładamy, że $amount to float (np. 5.00). formatujemy do stringa
+    
+    // W ApiClient/calculate_fee fee jest floatem.
+    // Dotpay amount: format "10.00"
+    $amountVal = number_format((float)$amount, 2, '.', '');
+    
+    $shop_id = $config['dotpay']['shop_id'];
+    $pin = $config['dotpay']['shop_pin'];
+    $currency = $config['dotpay']['currency'];
+    $desc = $config['dotpay']['description'] . " " . $ticket_id;
+    
+    // We pass exit_time in control to preserve it for the callback
+    $exit_time = $input['exit_time'] ?? date('Y-m-d H:i:s', strtotime('+15 minutes'));
+    $control = $ticket_id . '|' . strtotime($exit_time);
+    
+    // URL powrotu - dodajemy parametry żeby UI wiedziało co się dzieje
+    $url = $config['dotpay']['url_return'] . "?ticket_id=" . urlencode($ticket_id) . "&payment_status=success";
+    // URLC
+    $urlc = $config['dotpay']['url_c'];
+    
+    // Generowanie podpisu CHK (wersja dla Dotpay/P24 może się różnić, używamy standardowego concatenowania parametrów + PIN)
+    // Dokumentacja techniczna Dotpay:
+    // CHK = SHA256(pin + api_version + ... ) - dla pełnego API
+    // Dla prostego linku URL: 
+    // CHK = SHA256(PIN + id + amount + currency + description + control + url + type + buttontext + urlc + ...)
+    // UWAGA: Kolejność parametrów do CHK jest KLUCZOWA i zależy od wersji API.
+    // Najbezpieczniej używać podstawowych parametrów.
+    // Spróbujmy standardu: PIN + id + amount + currency + description + control + url + type + urlc
+    
+    // Parametry zapytania
+    $params = [
+        'id' => $shop_id,
+        'amount' => $amountVal,
+        'currency' => $currency,
+        'description' => $desc,
+        'control' => $control,
+        'url' => $url,
+        'urlc' => $urlc,
+        'type' => '0', // 0: przycisk, 2: plik (nie używamy), 4: przekierowanie (może być zablokowane)
+        'api_version' => 'dev'
+    ];
+    
+    // Budowa stringa do hashowania zgodnie z jedną z wersji (metoda "chk" legacy często bywa najprostsza)
+    // Nowsze api wymaga hash sha256.
+    // Konstrukcja stringa:
+    // Wiele integracji używa: PIN + id + amount + currency + description + control + url + urlc
+    $signString = $pin . 
+                  $params['id'] . 
+                  $params['amount'] . 
+                  $params['currency'] . 
+                  $params['description'] . 
+                  $params['control'] . 
+                  $params['url'] . 
+                  $params['type'] .
+                  $params['urlc'];
+                  
+    $chk = hash('sha256', $signString);
+    $params['chk'] = $chk;
+    
+    $isTest = isset($config['dotpay']['test_mode']) && $config['dotpay']['test_mode'] == 1;
+    $baseUrl = $isTest ? 'https://ssl.dotpay.pl/test_payment/' : 'https://ssl.dotpay.pl/t2/';
+    
+    // Budowanie Query String
+    $query = http_build_query($params);
+    $payment_url = $baseUrl . "?" . $query;
+    
+    echo json_encode([
+        'success' => true,
+        'redirect_url' => $payment_url, // Frontend zrobi window.location
+        'message' => 'Przekierowanie do płatności...'
+    ]);
+    exit;
+
+} else {
+    // Tryb symulacji (stary)
+    // 5. Wygenerowanie „biletu wyjazdowego” (symulowany kod QR lub dane z API jeśli by były)
+    $new_qr_code = "EXIT-" . strtoupper(uniqid());
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Płatność zakończona powodzeniem (SYMULACJA)',
+        'new_qr_code' => $new_qr_code,
+        'valid_until' => date('H:i', strtotime('+15 minutes'))
+    ]);
+}
+            // } else { // This else block is removed as payment is now external
+            //     throw new Exception("Błąd płatności: " . ($payResult['error'] ?? 'Nieznany błąd API'));
+            // }
 
     } catch (Exception $e) {
         error_log("Payment Error: " . $e->getMessage());
