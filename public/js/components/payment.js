@@ -19,16 +19,16 @@ export function initPayment() {
     payButton.addEventListener('click', async () => {
         // Check if we're in save mode (editing entry time)
         if (payButton.classList.contains('save-mode')) {
-             // Dispatch event for UI controls to handle saving
-             document.dispatchEvent(new CustomEvent('requestSaveEntry'));
-             return;
+            // Dispatch event for UI controls to handle saving
+            document.dispatchEvent(new CustomEvent('requestSaveEntry'));
+            return;
         }
 
         state.isUserInteracted = true;
         if (state.clockInterval) clearInterval(state.clockInterval);
 
         // Time Drift Check
-        const serverTimeStub = new Date(); 
+        const serverTimeStub = new Date();
         if (state.currentExitTime < serverTimeStub) {
             if (serverTimeStub.getTime() - state.currentExitTime.getTime() > 60000) {
                 console.warn('Selected exit time is in the past. Auto-correcting to NOW.');
@@ -44,7 +44,7 @@ export function initPayment() {
         try {
             // Force seconds to 00 for Entry Time
             const entryTimeClean = state.entryTime.substring(0, 16) + ':00';
-            
+
             const data = await processPayment(
                 null, // api.js handles getEffectiveTicketId
                 state.currentFee,
@@ -53,6 +53,12 @@ export function initPayment() {
             );
 
             if (data.success) {
+                // Handle redirection if present (Dotpay)
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                    return;
+                }
+
                 if (data.receipt_number) {
                     qrCode.innerHTML = `<span style="font-size:18px; font-weight:700">OPŁACONY DO:<br>${data.valid_to}</span>`;
                     // state.lastReceiptNumber = data.receipt_number; // No longer needed for display, but keeping data might be useful if other logic uses it.
@@ -60,13 +66,13 @@ export function initPayment() {
                     // The valid_to is available in data.valid_to as seen in line 68.
                 } else if (data.new_qr_code) {
                     qrCode.innerText = data.new_qr_code;
-                    if(data.new_qr_code.startsWith('REC-')) {
-                         state.lastReceiptNumber = data.new_qr_code.split('-')[1];
+                    if (data.new_qr_code.startsWith('REC-')) {
+                        state.lastReceiptNumber = data.new_qr_code.split('-')[1];
                     }
                 } else {
                     qrCode.innerText = "OPŁACONO";
                 }
-                
+
                 if (data.valid_to) {
                     const paymentInfoExitValue = document.getElementById('paymentInfoExitValue');
                     if (paymentInfoExitValue) {
@@ -75,7 +81,7 @@ export function initPayment() {
                     }
                     CONFIG.valid_to = data.valid_to;
                 }
-                
+
                 if (data.fee_paid !== undefined) {
                     const feePaidValue = document.getElementById('feePaidValue');
                     if (feePaidValue) {
@@ -91,18 +97,18 @@ export function initPayment() {
                 paymentSheet.style.transform = 'translate(-50%, 100%)';
             } else {
                 console.error('Płatność nieudana: ' + data.message);
-                const displayMsg = SCENARIO_TEST_MODE 
-                    ? `Payment Error: ${data.message}` 
+                const displayMsg = SCENARIO_TEST_MODE
+                    ? `Payment Error: ${data.message}`
                     : "Płatność nieudana. Spróbuj ponownie.";
                 showToast(displayMsg);
-                
+
                 payButton.innerText = originalText;
                 payButton.disabled = false;
             }
         } catch (error) {
             console.error('Error:', error);
-            const displayMsg = SCENARIO_TEST_MODE 
-                ? `Payment Network Error: ${error.message}` 
+            const displayMsg = SCENARIO_TEST_MODE
+                ? `Payment Network Error: ${error.message}`
                 : "Wystąpił błąd podczas płatności.";
             showToast(displayMsg);
 
@@ -131,8 +137,8 @@ document.addEventListener('feeUpdated', (e) => {
 document.addEventListener('feeUpdateFailed', () => {
     if (payButton) {
         // Reset to initial?
-         // updatePayButton(); 
-         // Leave it disabled? 
+        // updatePayButton(); 
+        // Leave it disabled? 
     }
 });
 
@@ -145,13 +151,13 @@ export function updatePayButton() {
         const ticketExist = API_SETTINGS.ticket_exist == 1;
 
         if (ticketExist && feePaid > 0) {
-             payButton.textContent = "Do zapłaty: 0,00 " + CONFIG.currency;
-             payButton.classList.add('btn-glass');
-             payButton.disabled = true;
+            payButton.textContent = "Do zapłaty: 0,00 " + CONFIG.currency;
+            payButton.classList.add('btn-glass');
+            payButton.disabled = true;
         } else {
-             payButton.textContent = "Do zapłaty: 0,00 " + CONFIG.currency;
-             payButton.classList.add('btn-glass');
-             payButton.disabled = true;
+            payButton.textContent = "Do zapłaty: 0,00 " + CONFIG.currency;
+            payButton.classList.add('btn-glass');
+            payButton.disabled = true;
         }
     } else {
         payButton.textContent = "Zapłać " + state.currentFee.toFixed(2) + " " + CONFIG.currency;
