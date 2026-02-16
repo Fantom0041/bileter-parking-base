@@ -165,15 +165,15 @@ class ApiClient
             return ['success' => false, 'error' => 'Nie zalogowano'];
         }
 
-       
+
         $dateFrom = $dateFrom ?? date('Y-m-d H:i:s');
         $dateTo = $dateTo ?? date('Y-m-d H:i:s');
 
-       
+
         $barcode = trim($barcode);
 
-        
-        
+
+
         $request = [
             'METHOD' => 'PARK_TICKET_GET_INFO',
             'ORDER_ID' => $this->getNextOrderId(),
@@ -197,7 +197,7 @@ class ApiClient
         if (isset($response['STATUS']) && $response['STATUS'] == 0) {
             // Check TICKET_EXIST flag
             $ticketExist = isset($response['TICKET_EXIST']) && $response['TICKET_EXIST'] == 1;
-            
+
 
             $ticketData = [
                 'BARCODE' => $response['BARCODE'] ?? $barcode, // Ticket ID from API
@@ -214,7 +214,7 @@ class ApiClient
                 'TICKET_EXIST' => $response['TICKET_EXIST'] ?? null,
                 'DATE' => $response['DATE'] ?? null
             ];
-          
+
 
             return [
                 'success' => true,
@@ -470,7 +470,8 @@ class ApiClient
         $port = $urlParts['port'] ?? 80;
 
         $jsonRequest = json_encode($data);
-        file_put_contents('app.log', "[DEBUG] Connecting to: $host:$port\n", FILE_APPEND);
+        $jsonRequest = json_encode($data);
+        $this->logger->log("[DEBUG] Connecting to: $host:$port", 'DEBUG');
         $socket = @fsockopen($host, $port, $errno, $errstr, 10);
 
         if (!$socket) {

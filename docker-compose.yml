@@ -3,10 +3,15 @@ services:
     build: .
     container_name: parking-app
     ports:
-      - "8020:80" # Maps localhost:8080 to container:80
-    volumes:
-      # Mounts your local folder to the container so code changes apply instantly
-      - .:/var/www/html
+      - "80:80"
+      - "443:443"
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
+   
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/lock/apache2
+      - /var/run/apache2
+      - /var/log/apache2
     restart: unless-stopped

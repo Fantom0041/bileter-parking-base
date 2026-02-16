@@ -1,19 +1,40 @@
 FROM php:8.2-apache
 
-# Enable Apache mod_rewrite for potential future URL routing
-RUN a2enmod rewrite
 
-# Set the working directory
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+
+RUN a2enmod ssl headers
+
+
+RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/apache-selfsigned.key \
+    -out /etc/ssl/certs/apache-selfsigned.crt \
+    -subj "/C=PL/ST=Malopolskie/L=Krakow/O=Parking/OU=IT/CN=localhost"
+
+
+RUN echo '<VirtualHost *:80>\n\
+    DocumentRoot /var/www/html\n\
+    ErrorLog /proc/self/fd/2\n\
+    CustomLog /proc/self/fd/1 combined\n\
+    </VirtualHost>\n\
+    \n\
+    <VirtualHost *:443>\n\
+    DocumentRoot /var/www/html\n\
+    SSLEngine on\n\
+    SSLCertificateFile /etc/ssl/certs/apache-selfsigned.crt\n\
+    SSLCertificateKeyFile /etc/ssl/private/apache-selfsigned.key\n\
+    ErrorLog /proc/self/fd/2\n\
+    CustomLog /proc/self/fd/1 combined\n\
+    </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+
+
 WORKDIR /var/www/html
 
-# Copy application files to the container
+
 COPY . /var/www/html
 
-# Set permissions:
-# We need to give the Apache user (www-data) write access to the directory
-# so it can update data.json and write receipts.
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
 
-# Expose port 80 (internal)
-EXPOSE 80
+RUN chown -R root:root /var/www/html
+
+EXPOSE 80 443

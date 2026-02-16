@@ -19,11 +19,6 @@ class Logger
 
     $formattedMessage = "[$timestamp] [$level] $message" . PHP_EOL;
 
-    // Write to file
-    @file_put_contents($this->logFile, $formattedMessage, FILE_APPEND);
-
-    // Write to console (stderr)
-    // Write to console (stderr)
     // Write to console (stderr)
     error_log(trim($formattedMessage));
   }
