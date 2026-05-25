@@ -1,0 +1,178 @@
+================================================================================
+          INSTRUKCJA INSTALACJI I URUCHOMIENIA (WDROŻENIA) PROJEKTU
+                          BILETER PARKING BASE
+================================================================================
+
+
+
+--------------------------------------------------------------------------------
+1. WYMAGANIA SYSTEMOWE I SIECIOWE
+--------------------------------------------------------------------------------
+Aby aplikacja działała poprawnie, serwer docelowy musi spełniać poniższe wymagania:
+
+A. Środowisko uruchomieniowe (opcje do wyboru):
+   - Opcja A (Zalecana): Docker oraz Docker Compose.
+   - Opcja B (Klasyczna): Serwer WWW (Apache 2.4+ z mod_rewrite lub Nginx)
+     oraz PHP w wersji 8.2 lub nowszej.
+
+B. Wymagane moduły / konfiguracja PHP (dla Opcji B):
+   - curl, json, openssl, mbstring.
+   - Włączona obsługa połączeń TCP za pomocą funkcji `fsockopen()`.
+
+C. Uprawnienia do zapisu:
+   - Proces serwera WWW (np. www-data lub nginx) musi mieć uprawnienia do zapisu
+     w katalogu głównym projektu. Aplikacja generuje na bieżąco pliki logów:
+     - `app.log`  (logi ogólne i debugowania komunikacji z API parkingu)
+     - `urlc.log` (logi potwierdzeń transakcji z systemu płatności Dotpay)
+
+D. Wymagania sieciowe i firewall (Kluczowe!):
+   - Połączenia wychodzące: Serwer, na którym uruchomiona jest aplikacja, musi mieć
+     odblokowany ruch wychodzący TCP na adres IP oraz port zewnętrznego API
+     systemu parkingowego (domyślnie port 2332, adres IP konfigurowany w config.ini).
+   - Połączenia wejściowe (Dla płatności): Serwer musi posiadać publiczny adres IP
+     oraz certyfikat SSL (rekomendowane HTTPS). Bramka płatności Dotpay musi mieć
+     możliwość wysłania żądania POST pod zdefiniowany adres URL (url_c, np. urlc.php)
+     w celu przekazania potwierdzenia płatności.
+
+--------------------------------------------------------------------------------
+2. METODA 1: URUCHOMIENIE ZA POMOCĄ DOCKER (Zalecane)
+--------------------------------------------------------------------------------
+Docker zapewnia izolację środowiska i automatyczną konfigurację uprawnień.
+
+Krok 1: Skopiuj wszystkie pliki projektu do docelowego katalogu na serwerze,
+        np. `/opt/parking-app/`.
+
+Krok 2: Dostosuj plik konfiguracji `config.ini` w katalogu głównym projektu
+        (szczegóły opisano w sekcji 4).
+
+Krok 3: Sprawdź plik `docker-compose.yml`. Domyślnie mapuje on port `8020` na serwerze
+        do portu `80` wewnątrz kontenera:
+        ```yaml
+        ports:
+          - "8020:80"
+        ```
+        Jeżeli port 8020 jest zajęty, zmień lewą stronę mapowania (np. "8080:80").
+
+Krok 4: Uruchom aplikację komendą w terminalu (będąc w katalogu z plikiem docker-compose.yml):
+        ```bash
+        docker compose up -d --build
+        ```
+        Flaga `-d` uruchamia aplikację w tle. Kontener zostanie automatycznie skonfigurowany,
+        zostaną nadane odpowiednie uprawnienia dla procesu Apache, a aplikacja będzie
+        dostępna pod adresem: `http://<IP_SERWERA>:8020`.
+
+Krok 5: Zabezpiecz ruch za pomocą serwera Reverse Proxy (np. Nginx lub Traefik)
+        na porcie 80/443 i skieruj go na port 8020 z poprawnym certyfikatem SSL.
+
+--------------------------------------------------------------------------------
+3. METODA 2: URUCHOMIENIE NA TRADYCYJNYM SERWERZE (Apache / Nginx)
+--------------------------------------------------------------------------------
+Jeśli wdrażasz projekt bezpośrednio na zainstalowanym serwerze Apache/Nginx w systemie Linux:
+
+Krok 1: Skopiuj pliki projektu do folderu głównego serwera WWW, np.:
+        `/var/www/html/bileter-parking-base`
+
+Krok 2: Ustaw uprawnienia zapisu dla serwera WWW (zakładając, że użytkownik to www-data):
+        ```bash
+        sudo chown -R www-data:www-data /var/www/html/bileter-parking-base
+        sudo chmod -R 775 /var/www/html/bileter-parking-base
+        ```
+
+Krok 3: (W przypadku Apache) Upewnij się, że włączony jest moduł rewrite:
+        ```bash
+        sudo a2enmod rewrite
+        sudo systemctl restart apache2
+        ```
+
+Krok 4: Skonfiguruj wirtualny host (VirtualHost) dla domeny/subdomeny wskazujący na
+        katalog `/var/www/html/bileter-parking-base`.
+
+--------------------------------------------------------------------------------
+4. KONFIGURACJA PLIKU config.ini
+--------------------------------------------------------------------------------
+Plik `config.ini` w katalogu głównym projektu steruje całym działaniem aplikacji.
+Należy go odpowiednio wyedytować przed uruchomieniem:
+
+[settings]
+station_id = "STATION_001"        ; Identyfikator stacji parkingowej (nadany w systemie)
+operator_user = "OP_KRAKOW_MAIN"  ; Nazwa użytkownika/operatora
+hourly_rate = 5.00                ; Podstawowa stawka godzinowa (np. 5.00)
+currency = "PLN"                  ; Waluta płatności (np. PLN)
+free_minutes = 15                 ; Czas na darmowe opuszczenie parkingu po wjeździe (w minutach)
+
+[parking_modes]
+time_mode = "daily"               ; Tryb naliczania (np. daily)
+duration_mode = "multi_day"       ; Tryb trwania (np. multi_day)
+day_counting = "from_entry"       ; Liczenie doby parkingowej (np. from_entry)
+
+[api]
+api_url = "http://172.16.2.51:2332" ; Adres zewnętrznego API systemu parkingowego
+api_login = "kasjer"                ; Login do API parkingu
+api_password = "kasjer"             ; Hasło do API parkingu
+api_pin = ""                        ; Kod PIN do API (jeżeli wymagany)
+device_id = 1                       ; ID urządzenia (liczbowe) w systemie parkingowym
+device_ip = "192.168.1.100"         ; Adres IP autoryzowany w systemie parkingowym
+entity_id = 1                       ; ID podmiotu/encji
+
+[dotpay]
+enabled = 1                         ; Włączenie płatności Dotpay (1 - włączone, 0 - wyłączone)
+shop_id = "749062"                  ; ID konta sprzedawcy w Dotpay
+shop_pin = "MRXKk5kgQIbwoROBaNB..." ; PIN sklepu do generowania i weryfikacji sum kontrolnych
+currency = "PLN"                    ; Waluta transakcji w Dotpay
+test_mode = 1                       ; Tryb testowy Dotpay (1 - włączony, 0 - produkcja)
+
+; URL do którego klient zostanie przekierowany po udanej płatności
+url_return = "http://<TWOJA_DOMENA>/index.php"
+
+; URL wywoływany asynchronicznie przez Dotpay po zaksięgowaniu płatności (KRYTYCZNY)
+; Musi być to publicznie dostępny adres URL!
+url_c = "http://<TWOJA_DOMENA>/urlc.php"
+
+description = "Oplata za bilet parkingowy"
+
+--------------------------------------------------------------------------------
+5. DIAGNOSTYKA I WERYFIKACJA POŁĄCZENIA Z API PARKINGU
+--------------------------------------------------------------------------------
+Aplikacja komunikuje się z API parkingowym przez bezpośrednie gniazda TCP. Po wdrożeniu
+zaleca się uruchomienie testu diagnostycznego w celu weryfikacji drożności sieci
+oraz poprawności danych logowania.
+
+A. Uruchomienie testu z poziomu terminala:
+   Wejdź do folderu z projektem na serwerze i wykonaj komendę:
+   ```bash
+   php test_api.php
+   ```
+   Skrypt spróbuje połączyć się z serwerem API zdefiniowanym w skrypcie (domyślnie
+   172.16.2.51:2332) i wyśle próbne zapytanie LOGIN.
+   - Sukces: Zobaczysz komunikat "✓ Połączono!" oraz "✓ Poprawny JSON!".
+   - Błąd: Otrzymasz komunikat o błędzie połączenia lub braku autoryzacji.
+
+B. Analiza logów:
+   - Plik `app.log` zawiera historię zapytań do API, w tym zapytania wysłane przez
+     użytkowników podczas próby opłacenia biletu.
+   - Plik `urlc.log` rejestruje każde zapytanie przychodzące z systemu płatności Dotpay.
+     Jeśli klient opłaci bilet, a w systemie parkingowym bilet nadal figuruje jako
+     nieopłacony, należy sprawdzić `urlc.log` pod kątem błędów weryfikacji podpisu
+     lub problemów z połączeniem do API w trakcie przetwarzania płatności.
+
+--------------------------------------------------------------------------------
+6. ROZWIĄZYWANIE TYPOWYCH PROBLEMÓW
+--------------------------------------------------------------------------------
+1. Błąd "Błąd połączenia z API" w aplikacji:
+   - Sprawdź, czy serwer ma dostęp do IP i portu z konfiguracji (np. za pomocą `ping`
+     lub `telnet <IP_API> <PORT>`).
+   - Upewnij się, że zapora sieciowa (firewall) na serwerze lub u dostawcy sieci
+     nie blokuje ruchu wychodzącego na porcie TCP API (np. port 2332).
+
+2. Transakcja została opłacona, ale bilet nie został rozliczony w systemie:
+   - Sprawdź plik `urlc.log`.
+   - Jeśli brak wpisów w `urlc.log`, oznacza to, że serwery Dotpay nie mogły połączyć się
+     z Twoim adresem podanym w `url_c`. Upewnij się, że adres URL w parametrze `url_c`
+     jest publicznie dostępny (nie localhost!) oraz że porty 80/443 są otwarte dla ruchu.
+   - Jeśli w logu widnieje błąd "BŁĄD: Podpis się nie zgadza!", upewnij się, że parametr
+     `shop_pin` w `config.ini` jest dokładnie taki sam jak PIN ustawiony w panelu Dotpay.
+
+3. Brak zapisu logów:
+   - Upewnij się, że pliki `app.log` oraz `urlc.log` (jeśli już istnieją) mają
+     nadane odpowiednie uprawnienia zapisu dla serwera WWW.
+================================================================================
